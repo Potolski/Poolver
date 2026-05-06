@@ -2,6 +2,17 @@
 members = [
     "programs/*"
 ]
+# `archive/poolver-legacy` is the sunsetted V0 program (kept for git
+# history, see arch §14). The fake-core stub under tests/ is a tiny native
+# Solana program built only as a test fixture — sign the core_invoker PDA
+# without depending on `poolver-core`, which doesn't exist yet
+# (SPEC_QUESTION-26).
+exclude = [
+    "archive",
+    "programs/poolver-yield-vault/tests/fake_core",
+    "programs/poolver-reserve/tests/fake_core",
+    "programs/poolver-yield-defi/tests/fake_core",
+]
 resolver = "2"
 
 [profile.release]

@@ -6,10 +6,16 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-poolver = "Fz4KqVayYMmRyToZxJzErd9qRsnh8Bdq84yicvhv4114"
+poolver_yield_vault = "A3ERUDLAdqdwgqgAoYLftxA6F1QtxSHZYu8DpNDXyyUp"
+poolver_yield_defi = "DAitPF7KHzRDVWcV4XM3J7dYGrKJkH332dQHPYUiP7UP"
+poolver_reserve = "CfxRT3jsXWQZRev67ztqaNKCrHaKF6ieW9a1E8NDPvnx"
+poolver_core = "2SsxJqMCYKCYesfzfXASgAPPz153j8tYMXpMKKmt2QXk"
 
 [programs.devnet]
-poolver = "Fz4KqVayYMmRyToZxJzErd9qRsnh8Bdq84yicvhv4114"
+poolver_yield_vault = "A3ERUDLAdqdwgqgAoYLftxA6F1QtxSHZYu8DpNDXyyUp"
+poolver_yield_defi = "DAitPF7KHzRDVWcV4XM3J7dYGrKJkH332dQHPYUiP7UP"
+poolver_reserve = "CfxRT3jsXWQZRev67ztqaNKCrHaKF6ieW9a1E8NDPvnx"
+poolver_core = "2SsxJqMCYKCYesfzfXASgAPPz153j8tYMXpMKKmt2QXk"
 
 [provider]
 cluster = "devnet"

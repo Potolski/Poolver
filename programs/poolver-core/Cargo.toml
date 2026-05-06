@@ -1,0 +1,64 @@
+[package]
+name = "poolver-core"
+version = "0.1.0"
+description = "Poolver V1 core program (protocol config, KYC, pools, participants)"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "poolver_core"
+
+[features]
+# `mock-kyc` is the V1 hackathon default: enables `mock_issue_kyc` for
+# devnet testing. Production builds drop the feature so the instruction is
+# excluded from the IDL and the .so binary entirely (spec §9.11, arch §10,
+# INV-26). `--no-default-features` reproduces a production-shaped binary.
+default = ["mock-kyc"]
+mock-kyc = []
+no-entrypoint = []
+cpi = ["no-entrypoint"]
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+[dependencies]
+anchor-lang = "1.0.0"
+anchor-spl = { version = "1.0.0", features = ["token_2022", "associated_token"] }
+# SHA-256 helper for the bid commit-reveal preimage hash (spec §3 Bid
+# `commit_hash` definition / INV-14). The hashv function is BPF-syscall-
+# backed on-chain (cheap) and falls back to a software impl for tests.
+solana-sha256-hasher = { version = "3", features = ["sha2"] }
+# Core CPIs into both adapters. We depend on their crates with `cpi` feature
+# so we get their generated CPI helpers without pulling their entrypoints
+# into our binary.
+poolver-reserve = { path = "../poolver-reserve", features = ["cpi"] }
+poolver-yield-vault = { path = "../poolver-yield-vault", features = ["cpi"] }
+# Step 13 (SPEC_QUESTION-36): tier dispatch wires Tier 1 (DeFi) into the
+# four adapter-touching instructions. Pulled with the `cpi` feature so we
+# get the generated CPI helpers without dragging the entrypoint into our
+# binary.
+poolver-yield-defi = { path = "../poolver-yield-defi", features = ["cpi"] }
+
+[dev-dependencies]
+litesvm = "0.10.0"
+solana-account = "3.4"
+solana-clock = "3.0"
+solana-keypair = "3.0.1"
+solana-message = "3.0.1"
+solana-program-option = "3.1"
+solana-program-pack = "3.1"
+solana-pubkey = "3.0"
+solana-signer = "3.0.0"
+solana-transaction = "3.0.2"
+spl-token-interface = "2.0"
+solana-instruction = "3.4"
+spl-associated-token-account-interface = "2.0"
+# Test-side hashing — same crate the program uses on-chain so the
+# commit_hash bytes match exactly across off-chain prep + on-chain check.
+solana-sha256-hasher = { version = "3", features = ["sha2"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

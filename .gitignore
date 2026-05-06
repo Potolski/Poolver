@@ -32,3 +32,11 @@ INVESTMENT_REPORT.md
 
 # Local-only design prototype (see docs/DESIGN_HANDOFF.md for the spec)
 design_handoff_poolver/
+# SDK build output (regenerate with: cd client && yarn build)
+client/dist/
+
+# Deploy receipts
+deployments/
+
+# Node compile cache
+node-compile-cache/

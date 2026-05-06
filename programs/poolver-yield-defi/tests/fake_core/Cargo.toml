@@ -1,0 +1,16 @@
+[package]
+name = "fake-core-defi"
+version = "0.1.0"
+edition = "2021"
+description = "Test-only fake poolver-core stub for poolver-yield-defi unit tests. Mirrors the stub under poolver-yield-vault/tests/fake_core (same forward-CPI behavior). Excluded from the workspace; built once via `cargo build-sbf` from the test setup."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "fake_core_defi"
+
+[features]
+default = []
+no-entrypoint = []
+
+[dependencies]
+solana-program = "3.0"

@@ -1,0 +1,17 @@
+[package]
+name = "fake-core"
+version = "0.1.0"
+edition = "2021"
+description = "Test-only fake poolver-core stub. Signs the core_invoker PDA so that poolver-yield-vault unit tests can exercise the real on-chain auth path. Excluded from the workspace; built once via `cargo build-sbf` from the test setup."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "fake_core"
+
+[features]
+default = []
+no-entrypoint = []
+
+[dependencies]
+# Native Solana program — no Anchor — keeps build cheap and version-clean.
+solana-program = "3"
