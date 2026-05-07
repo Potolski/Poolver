@@ -22,6 +22,58 @@ export type PoolverReserve = {
   ],
   "instructions": [
     {
+      "name": "adminCloseReserve",
+      "discriminator": [
+        7,
+        95,
+        80,
+        63,
+        161,
+        170,
+        222,
+        56
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "docs": [
+            "Receives the rent refund from both the `ReserveFund` PDA and the",
+            "`reserve_usdc_vault` token account. SPEC_QUESTION-26: V1 accepts",
+            "any signer (matches `initialize_reserve`)."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "reserveFund",
+          "writable": true
+        },
+        {
+          "name": "reserveUsdcVault",
+          "docs": [
+            "We don't deserialize as `TokenAccount` because the close CPI inside",
+            "the handler invalidates the discriminator before Anchor's drop-time",
+            "re-serialise check would run."
+          ],
+          "writable": true
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "tier",
+          "type": {
+            "defined": {
+              "name": "tier"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "deposit",
       "discriminator": [
         242,
@@ -389,6 +441,19 @@ export type PoolverReserve = {
   ],
   "events": [
     {
+      "name": "reserveClosed",
+      "discriminator": [
+        163,
+        73,
+        88,
+        57,
+        0,
+        150,
+        89,
+        217
+      ]
+    },
+    {
       "name": "reserveDeposit",
       "discriminator": [
         199,
@@ -464,6 +529,40 @@ export type PoolverReserve = {
     }
   ],
   "types": [
+    {
+      "name": "reserveClosed",
+      "docs": [
+        "SPEC_QUESTION-26: emitted by `admin_close_reserve` when the tier reserve",
+        "is torn down ahead of a re-`initialize_reserve` with a different USDC",
+        "mint. Indexers should treat this as \"tier reserve rotation in progress\";",
+        "a fresh `ReserveInitialized(tier)` will follow."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tier",
+            "type": {
+              "defined": {
+                "name": "tier"
+              }
+            }
+          },
+          {
+            "name": "reserveFund",
+            "type": "pubkey"
+          },
+          {
+            "name": "reserveUsdcVault",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
     {
       "name": "reserveDeposit",
       "type": {

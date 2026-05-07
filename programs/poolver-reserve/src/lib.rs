@@ -30,6 +30,14 @@ pub mod poolver_reserve {
         handle_initialize_reserve(ctx, tier)
     }
 
+    // SPEC_QUESTION-26: tier-scoped tear-down so a fresh
+    // `initialize_reserve(tier)` can rebind to a different USDC mint.
+    // V1 mirrors `initialize_reserve` permissiveness (any signer); V2
+    // multi-sig will tighten this in lock-step.
+    pub fn admin_close_reserve(ctx: Context<AdminCloseReserve>, tier: Tier) -> Result<()> {
+        handle_admin_close_reserve(ctx, tier)
+    }
+
     pub fn deposit(ctx: Context<ReserveDepositCtx>, amount: u64) -> Result<()> {
         handle_deposit(ctx, amount)
     }

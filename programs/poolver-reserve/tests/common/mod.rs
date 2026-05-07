@@ -129,6 +129,23 @@ impl TestEnv {
         }
         ReserveFund::try_deserialize(&mut acct.data.as_ref()).ok()
     }
+
+    /// SPEC_QUESTION-26: returns true iff the PDA still has lamports + data.
+    /// Used by the close+rotate regression to assert teardown succeeded.
+    pub fn account_exists(&self, pda: &Pubkey) -> bool {
+        match self.svm.get_account(pda) {
+            Some(a) => !a.data.is_empty() && a.lamports > 0,
+            None => false,
+        }
+    }
+
+    /// SPEC_QUESTION-26: mint a *new* USDC-shaped mint distinct from
+    /// `self.usdc_mint`. Used by the close+rotate regression to prove
+    /// `initialize_reserve` re-runs against a fresh mint after
+    /// `admin_close_reserve`.
+    pub fn create_extra_usdc_mint(&mut self) -> Pubkey {
+        create_usdc_mint(&mut self.svm)
+    }
 }
 
 fn reserve_so_path() -> String {

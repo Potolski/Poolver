@@ -33,11 +33,13 @@ export const USDC_MINT_MAINNET = new PublicKey(
   "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 );
 
-// Devnet placeholder. Operators must mint a fake USDC and pass it via
-// initialize_protocol. This constant is provided as a default for tests
-// and the deploy script CLI.
+// Devnet mock USDC. Created by `spl-token create-token --decimals 6` on
+// 2026-05-07; mint authority = deploy wallet (FFwSGSnHwBkJve7dYhdKcq2JtpMxmA2rT7fJ9i2zxNFq).
+// The live devnet ProtocolConfig + ReserveFunds were rotated to use this
+// mint via admin_close_protocol/reserve + re-init on 2026-05-07.
+// Faucet via `scripts/faucet.ts` (admin only) or the SDK's mintTo helper.
 export const USDC_MINT_DEVNET_DEFAULT = new PublicKey(
-  "Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr"
+  "B6dnuZtKH7FsSK6tySfWkk6ReW2LdKpmnfGAoMKsv8w8"
 );
 
 // ─────────────────────────── PDA seeds (core) ─────────────────────────

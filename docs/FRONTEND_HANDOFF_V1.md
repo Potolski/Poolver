@@ -29,18 +29,109 @@ Everything in the existing `app/src/lib/program.ts`, `app/src/lib/idl/`, and `ap
 
 ## 2. Devnet program IDs
 
-| Program | Devnet ID | Status |
-|---|---|---|
-| `poolver_core` | `2SsxJqMCYKCYesfzfXASgAPPz153j8tYMXpMKKmt2QXk` | ⏳ pending top-up |
-| `poolver_reserve` | `CfxRT3jsXWQZRev67ztqaNKCrHaKF6ieW9a1E8NDPvnx` | ✅ deployed |
-| `poolver_yield_vault` | `A3ERUDLAdqdwgqgAoYLftxA6F1QtxSHZYu8DpNDXyyUp` | ✅ deployed |
-| `poolver_yield_defi` | `DAitPF7KHzRDVWcV4XM3J7dYGrKJkH332dQHPYUiP7UP` | ✅ deployed |
+All 4 programs **deployed and initialized** on devnet (2026-05-07):
+
+| Program | Devnet ID |
+|---|---|
+| `poolver_core` | `2SsxJqMCYKCYesfzfXASgAPPz153j8tYMXpMKKmt2QXk` |
+| `poolver_reserve` | `CfxRT3jsXWQZRev67ztqaNKCrHaKF6ieW9a1E8NDPvnx` |
+| `poolver_yield_vault` | `A3ERUDLAdqdwgqgAoYLftxA6F1QtxSHZYu8DpNDXyyUp` |
+| `poolver_yield_defi` | `DAitPF7KHzRDVWcV4XM3J7dYGrKJkH332dQHPYUiP7UP` |
+
+### Live state (post-rotation, 2026-05-07)
+
+| Account | Devnet PDA / address |
+|---|---|
+| `ProtocolConfig` | `ACQHJSYtZAD1rJLN12msJWTpqZvpVyCRaVM7anXMidd5` (re-init, bound to mock mint) |
+| `protocol_fee_vault` (TokenAccount) | `EBMyGaPTCscvCXgtUsTzZFMeHxVzBxNEhQGjDe17oVao` |
+| `ReserveFund(Vault)` | `8nAzgD1yE1DRi4keoKEQudQhoAr22znBoWT2U56sWZiS` |
+| `reserve_usdc_vault(Vault)` | `4Jcvvh8QMy4TkDrsuFzByLYPsVZTFTuERZS3hjaQxrpM` |
+| `ReserveFund(DeFi)` | `FXJBPTuwa3qEuzjXGwMAYNR1hZ2xcx6h1fogCA2XjWsU` |
+| `reserve_usdc_vault(DeFi)` | `2QPRpvpAsKkiYueAXzUTeb8ixz4e67BmE2RDNpjCwveW` |
+| Admin (deploy wallet) | `FFwSGSnHwBkJve7dYhdKcq2JtpMxmA2rT7fJ9i2zxNFq` |
 
 Sources of truth: `Anchor.toml` `[programs.devnet]`, also exported as TypeScript constants in `client/src/constants.ts`.
 
-### Other constants
+### Recommended dev RPC
 
-- **USDC mint (devnet test mint):** `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` — Circle's official devnet USDC. Faucet at https://faucet.circle.com.
+The public devnet endpoint (`https://api.devnet.solana.com`) is heavily rate-limited and **will not** sustain large-program operations. For development against this devnet deployment, point your `Connection` at a Helius free-tier devnet URL:
+
+```ts
+const connection = new Connection(
+  "https://devnet.helius-rpc.com/?api-key=YOUR_KEY",
+  "confirmed",
+);
+```
+
+Get a free key at https://dashboard.helius.dev. Read-only operations (account fetches, simulating txs, watching events) are fine on the public endpoint; sending bid/contribute/claim txs will be much faster against Helius.
+
+### Mock USDC mint (for testing + demo)
+
+| | |
+|---|---|
+| **Mint address** | `B6dnuZtKH7FsSK6tySfWkk6ReW2LdKpmnfGAoMKsv8w8` |
+| Decimals | 6 (matches USDC) |
+| Mint authority | `FFwSGSnHwBkJve7dYhdKcq2JtpMxmA2rT7fJ9i2zxNFq` (deploy wallet) |
+| Initial supply | 1,005,000 (held by deploy wallet ATA `6qr51LmyLuyNkKdJW3N7ih41fhTN7NVrAsDeQ3W7uTGp`) |
+
+Use this mint everywhere in the UI as the "USDC" token. It's also exported as `USDC_MINT_DEVNET_DEFAULT` from `@poolver/client/constants`.
+
+#### Faucet — minting test USDC to user wallets
+
+CLI (admin only):
+
+```bash
+NODE_PATH=$(pwd)/client/node_modules npx tsx scripts/faucet.ts \
+  --recipient <user-wallet-pubkey> \
+  --amount 5000 \
+  --rpc "https://devnet.helius-rpc.com/?api-key=YOUR_KEY"
+```
+
+For the frontend's "Get test USDC" button, wrap this in a server-side endpoint that holds the admin keypair:
+
+```ts
+// /api/faucet/route.ts (Next.js)
+import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
+import {
+  createAssociatedTokenAccountIdempotentInstruction,
+  createMintToInstruction,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
+
+const MINT = new PublicKey("B6dnuZtKH7FsSK6tySfWkk6ReW2LdKpmnfGAoMKsv8w8");
+const ADMIN = Keypair.fromSecretKey(/* from env */);
+const FAUCET_AMOUNT = 5_000_000_000n; // 5000 USDC in microUSDC
+
+export async function POST(req: Request) {
+  const { recipient } = await req.json();
+  const conn = new Connection(process.env.HELIUS_RPC!, "confirmed");
+  const recipientPk = new PublicKey(recipient);
+  const ata = getAssociatedTokenAddressSync(MINT, recipientPk);
+
+  const tx = new Transaction()
+    .add(createAssociatedTokenAccountIdempotentInstruction(ADMIN.publicKey, ata, recipientPk, MINT))
+    .add(createMintToInstruction(MINT, ata, ADMIN.publicKey, FAUCET_AMOUNT));
+
+  const sig = await sendAndConfirmTransaction(conn, tx, [ADMIN]);
+  return Response.json({ signature: sig, ata: ata.toBase58() });
+}
+```
+
+Rate-limit per IP and per recipient pubkey before exposing.
+
+### Mint rotation — RESOLVED 2026-05-07
+
+The protocol was initially deployed with an unmintable placeholder mint (`Gh9Zw...`). On 2026-05-07 we added two admin-only "close" instructions (`admin_close_protocol` in core, `admin_close_reserve` in reserve), upgraded both programs, closed the old `ProtocolConfig` + `protocol_fee_vault` + both `ReserveFund`s + their token accounts, and re-ran `initialize_protocol` + `initialize_reserve` against the new mock mint.
+
+**Current devnet state is clean** — every protocol-owned token account is bound to `B6dnuZtKH7FsSK6tySfWkk6ReW2LdKpmnfGAoMKsv8w8`:
+
+- `protocol_fee_vault` mint = ✅ B6dn...
+- `reserve_usdc_vault(Vault)` mint = ✅ B6dn...
+- `reserve_usdc_vault(DeFi)` mint = ✅ B6dn...
+
+End-to-end `contribute`, `claim_winning`, `liquidate_default`, and `distribute_yield` will all settle correctly against this mint on devnet. **No demo workarounds needed.**
+
+The two admin instructions (`admin_close_protocol` and `admin_close_reserve`) ship in the upgraded programs and remain available for any future mint rotations (e.g., when swapping to real mainnet USDC pre-launch). Run via `scripts/admin-close-and-reinit.ts`.
 - **USDC decimals:** 6 (so 1 USDC = 1_000_000 base units / "microUSDC")
 - **Pool size:** fixed at 12 participants × 12 months
 - **Contribution range:** 100 USDC ≤ amount ≤ 10,000 USDC

@@ -22,6 +22,7 @@ use anchor_lang::InstructionData;
 use common::*;
 use solana_instruction::AccountMeta;
 use solana_keypair::Keypair;
+use solana_program_pack::Pack;
 use solana_pubkey::Pubkey;
 use solana_signer::Signer;
 
@@ -547,4 +548,169 @@ fn t11_reserve_isolation_inv4() {
     let t0_final = env.fetch_fund(&tier0_fund);
     assert_eq!(t0_final.total_balance, 400 * ONE_USDC);
     assert_inv3(&t0_final);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SPEC_QUESTION-26 — admin_close_reserve regression suite
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Tier-scoped tear-down so a fresh `initialize_reserve(tier)` can rebind
+// to a different USDC mint. V1 mirrors `initialize_reserve`'s
+// permissiveness — any signer — because the SPL `CloseAccount` CPI itself
+// guarantees the vault is empty (non-empty token accounts cannot be
+// closed), so no funds can be silently destroyed by a hostile caller.
+
+fn metas_admin_close_reserve(
+    caller: Pubkey,
+    reserve_fund: Pubkey,
+    reserve_usdc_vault: Pubkey,
+) -> Vec<AccountMeta> {
+    vec![
+        AccountMeta::new(caller, true),
+        AccountMeta::new(reserve_fund, false),
+        AccountMeta::new(reserve_usdc_vault, false),
+        AccountMeta::new_readonly(spl_token_interface::ID, false),
+    ]
+}
+
+fn admin_close_reserve(env: &mut TestEnv, tier: Tier) -> Result<(), String> {
+    let (fund_pda, _) = env.reserve_fund_pda(tier);
+    let (vault_pda, _) = env.reserve_vault_pda(tier);
+    let metas =
+        metas_admin_close_reserve(env.payer.pubkey(), fund_pda, vault_pda);
+    let data = poolver_reserve::instruction::AdminCloseReserve { tier }.data();
+    let ix = solana_instruction::Instruction {
+        program_id: poolver_reserve::ID,
+        accounts: metas,
+        data,
+    };
+    let payer_kp = env.payer.insecure_clone();
+    send_ix(&mut env.svm, &payer_kp, ix)
+}
+
+#[test]
+fn t12_admin_close_reserve_tier0_then_reinit_with_new_mint() {
+    let mut env = TestEnv::new();
+    let (fund_pda, vault_pda) = init_tier(&mut env, Tier::Vault);
+
+    // Pre-conditions: live.
+    assert!(env.account_exists(&fund_pda));
+    assert!(env.account_exists(&vault_pda));
+
+    // Close.
+    admin_close_reserve(&mut env, Tier::Vault).expect("admin_close_reserve");
+
+    // Both accounts gone.
+    assert!(
+        !env.account_exists(&fund_pda),
+        "ReserveFund must be closed"
+    );
+    assert!(
+        !env.account_exists(&vault_pda),
+        "reserve_usdc_vault must be closed"
+    );
+
+    // Re-init with a different mint at the same PDAs succeeds.
+    let new_mint = env.create_extra_usdc_mint();
+    assert_ne!(new_mint, env.usdc_mint);
+
+    // Build init metas using the new mint.
+    let metas = vec![
+        AccountMeta::new(env.payer.pubkey(), true),
+        AccountMeta::new(fund_pda, false),
+        AccountMeta::new_readonly(new_mint, false),
+        AccountMeta::new(vault_pda, false),
+        AccountMeta::new_readonly(spl_token_interface::ID, false),
+        AccountMeta::new_readonly(
+            solana_pubkey::pubkey!("11111111111111111111111111111111"),
+            false,
+        ),
+        AccountMeta::new_readonly(
+            solana_pubkey::pubkey!("SysvarRent111111111111111111111111111111111"),
+            false,
+        ),
+    ];
+    let data = poolver_reserve::instruction::InitializeReserve { tier: Tier::Vault }.data();
+    let ix = solana_instruction::Instruction {
+        program_id: poolver_reserve::ID,
+        accounts: metas,
+        data,
+    };
+    let payer_kp = env.payer.insecure_clone();
+    send_ix(&mut env.svm, &payer_kp, ix).expect("re-initialize_reserve with new mint");
+
+    // Re-fetched fund must point at the new vault (same PDA address) and
+    // the SPL token account at that PDA must now have the new mint.
+    let fund = env.fetch_fund(&fund_pda);
+    assert_eq!(fund.usdc_vault, vault_pda);
+    assert_eq!(fund.tier, Tier::Vault);
+    assert_eq!(fund.total_balance, 0);
+
+    // Sanity: token account was recreated with the new mint.
+    let acct = env
+        .svm
+        .get_account(&vault_pda)
+        .expect("vault recreated");
+    let token_state = spl_token_interface::state::Account::unpack(&acct.data).unwrap();
+    assert_eq!(token_state.mint, new_mint, "vault must bind to new mint");
+}
+
+#[test]
+fn t13_admin_close_reserve_tier1_then_reinit_with_new_mint() {
+    let mut env = TestEnv::new();
+    let (fund_pda, vault_pda) = init_tier(&mut env, Tier::DeFi);
+    assert!(env.account_exists(&fund_pda));
+    assert!(env.account_exists(&vault_pda));
+
+    admin_close_reserve(&mut env, Tier::DeFi).expect("admin_close_reserve(DeFi)");
+    assert!(!env.account_exists(&fund_pda));
+    assert!(!env.account_exists(&vault_pda));
+
+    // Re-init for DeFi with a fresh mint.
+    let new_mint = env.create_extra_usdc_mint();
+    let metas = vec![
+        AccountMeta::new(env.payer.pubkey(), true),
+        AccountMeta::new(fund_pda, false),
+        AccountMeta::new_readonly(new_mint, false),
+        AccountMeta::new(vault_pda, false),
+        AccountMeta::new_readonly(spl_token_interface::ID, false),
+        AccountMeta::new_readonly(
+            solana_pubkey::pubkey!("11111111111111111111111111111111"),
+            false,
+        ),
+        AccountMeta::new_readonly(
+            solana_pubkey::pubkey!("SysvarRent111111111111111111111111111111111"),
+            false,
+        ),
+    ];
+    let data = poolver_reserve::instruction::InitializeReserve { tier: Tier::DeFi }.data();
+    let ix = solana_instruction::Instruction {
+        program_id: poolver_reserve::ID,
+        accounts: metas,
+        data,
+    };
+    let payer_kp = env.payer.insecure_clone();
+    send_ix(&mut env.svm, &payer_kp, ix).expect("re-init DeFi");
+
+    let fund = env.fetch_fund(&fund_pda);
+    assert_eq!(fund.tier, Tier::DeFi);
+    let acct = env.svm.get_account(&vault_pda).unwrap();
+    let token_state = spl_token_interface::state::Account::unpack(&acct.data).unwrap();
+    assert_eq!(token_state.mint, new_mint);
+}
+
+#[test]
+fn t14_admin_close_reserve_tiers_independent() {
+    // Closing Tier 0 must NOT affect Tier 1 (INV-4 isolation).
+    let mut env = TestEnv::new();
+    let (t0_fund, t0_vault) = init_tier(&mut env, Tier::Vault);
+    let (t1_fund, t1_vault) = init_tier(&mut env, Tier::DeFi);
+
+    admin_close_reserve(&mut env, Tier::Vault).expect("close Tier 0");
+
+    assert!(!env.account_exists(&t0_fund));
+    assert!(!env.account_exists(&t0_vault));
+    // Tier 1 still live.
+    assert!(env.account_exists(&t1_fund));
+    assert!(env.account_exists(&t1_vault));
 }

@@ -37,6 +37,13 @@ pub mod poolver_core {
         handle_initialize_protocol(ctx)
     }
 
+    // SPEC_QUESTION-26: admin tear-down of the singleton config so a fresh
+    // `initialize_protocol` can rebind the USDC mint. V2 multi-sig will
+    // gate this; V1 enforces single-admin via `has_one = admin`.
+    pub fn admin_close_protocol(ctx: Context<AdminCloseProtocol>) -> Result<()> {
+        handle_admin_close_protocol(ctx)
+    }
+
     // MOCK_KYC: V1 only — replaced in production by `issue_kyc_attestation`
     // signed by `protocol_config.kyc_oracle`. Building with
     // `--no-default-features` drops this entry from the program dispatch

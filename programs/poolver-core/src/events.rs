@@ -18,6 +18,19 @@ pub struct ProtocolInitialized {
     pub timestamp: i64,
 }
 
+/// SPEC_QUESTION-26: emitted by `admin_close_protocol` when the admin tears
+/// down the singleton `ProtocolConfig` + `protocol_fee_vault` ahead of a
+/// re-`initialize_protocol` with a different USDC mint. Indexers should
+/// treat this as "config rotation in progress"; a fresh `ProtocolInitialized`
+/// will follow.
+#[event]
+pub struct ProtocolClosed {
+    pub admin: Pubkey,
+    pub protocol_config: Pubkey,
+    pub protocol_fee_vault: Pubkey,
+    pub timestamp: i64,
+}
+
 #[event]
 pub struct KycAttestationIssued {
     pub user: Pubkey,

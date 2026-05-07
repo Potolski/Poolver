@@ -40,3 +40,6 @@ deployments/
 
 # Node compile cache
 node-compile-cache/
+
+# Deploy buffer recovery seeds (never commit)
+.deploy-recovery/

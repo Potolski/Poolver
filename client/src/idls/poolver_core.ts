@@ -29,6 +29,99 @@ export type PoolverCore = {
   ],
   "instructions": [
     {
+      "name": "adminCloseProtocol",
+      "discriminator": [
+        221,
+        207,
+        69,
+        101,
+        75,
+        85,
+        171,
+        12
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "protocolConfig"
+          ]
+        },
+        {
+          "name": "protocolConfig",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  116,
+                  111,
+                  99,
+                  111,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "protocolFeeVault",
+          "docs": [
+            "We don't deserialize as `TokenAccount` because the closed-state of the",
+            "account post-CPI would prevent Anchor's account-info drop check from",
+            "matching. The `seeds + bump` constraint is the only validation needed",
+            "— any account at this PDA is, by construction, the protocol fee vault."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  116,
+                  111,
+                  99,
+                  111,
+                  108,
+                  95,
+                  102,
+                  101,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "advanceMonth",
       "discriminator": [
         221,
@@ -3081,6 +3174,19 @@ export type PoolverCore = {
       ]
     },
     {
+      "name": "protocolClosed",
+      "discriminator": [
+        71,
+        219,
+        226,
+        173,
+        20,
+        219,
+        33,
+        137
+      ]
+    },
+    {
       "name": "protocolInitialized",
       "discriminator": [
         173,
@@ -4541,6 +4647,37 @@ export type PoolverCore = {
           },
           {
             "name": "startTimestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "protocolClosed",
+      "docs": [
+        "SPEC_QUESTION-26: emitted by `admin_close_protocol` when the admin tears",
+        "down the singleton `ProtocolConfig` + `protocol_fee_vault` ahead of a",
+        "re-`initialize_protocol` with a different USDC mint. Indexers should",
+        "treat this as \"config rotation in progress\"; a fresh `ProtocolInitialized`",
+        "will follow."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "protocolConfig",
+            "type": "pubkey"
+          },
+          {
+            "name": "protocolFeeVault",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
             "type": "i64"
           }
         ]

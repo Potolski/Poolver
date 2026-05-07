@@ -44,3 +44,15 @@ pub struct ReserveSeeded {
     pub total_inflows: u64,
     pub timestamp: i64,
 }
+
+/// SPEC_QUESTION-26: emitted by `admin_close_reserve` when the tier reserve
+/// is torn down ahead of a re-`initialize_reserve` with a different USDC
+/// mint. Indexers should treat this as "tier reserve rotation in progress";
+/// a fresh `ReserveInitialized(tier)` will follow.
+#[event]
+pub struct ReserveClosed {
+    pub tier: Tier,
+    pub reserve_fund: Pubkey,
+    pub reserve_usdc_vault: Pubkey,
+    pub timestamp: i64,
+}

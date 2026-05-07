@@ -106,8 +106,10 @@ async function main(): Promise<void> {
       tier,
       args.usdcMint
     );
-    // The Tier enum is passed as { vault: {} } | { defi: {} }
-    const tierIdl = tier === "vault" ? { vault: {} } : { defi: {} };
+    // The Tier enum is passed as { vault: {} } | { deFi: {} }.
+    // Anchor camelcases enum variant names — IDL has `Vault` and `DeFi`,
+    // which become `vault` and `deFi` (the inner capital F is preserved).
+    const tierIdl = tier === "vault" ? { vault: {} } : { deFi: {} };
     const ix = await client.reserve.methods
       .initializeReserve(tierIdl)
       .accounts(accounts)

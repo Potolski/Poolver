@@ -209,6 +209,14 @@ impl TestEnv {
         ata
     }
 
+    /// Mint a *new* USDC-shaped mint distinct from `self.usdc_mint`. Used by
+    /// the SPEC_QUESTION-26 close+rotate regression tests so we can prove
+    /// that `initialize_protocol` re-runs successfully against a fresh mint
+    /// after `admin_close_protocol`.
+    pub fn create_extra_usdc_mint(&mut self) -> Pubkey {
+        create_usdc_mint(&mut self.svm)
+    }
+
     pub fn fetch_token_balance(&self, account: &Pubkey) -> u64 {
         let acct = self.svm.get_account(account).expect("token account missing");
         SplTokenAccount::unpack(&acct.data).unwrap().amount

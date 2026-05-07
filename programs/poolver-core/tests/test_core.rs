@@ -723,3 +723,104 @@ fn t19_e2e_fee_accounting_solvency() {
         + env.fetch_token_balance(&adapter_usdc);
     assert_eq!(total, 12 * contribution, "solvency check failed");
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// SPEC_QUESTION-26 — admin_close_protocol regression suite
+// ─────────────────────────────────────────────────────────────────────────
+//
+// These tests cover the post-deploy USDC-mint rotation flow: the admin
+// closes both `ProtocolConfig` and `protocol_fee_vault`, then re-runs
+// `initialize_protocol` against a *different* USDC mint and the protocol
+// comes back online with the fresh binding. Negative tests assert the
+// `has_one = admin` constraint rejects rogue signers.
+
+fn metas_admin_close_protocol(
+    admin: Pubkey,
+    protocol_config: Pubkey,
+    protocol_fee_vault: Pubkey,
+) -> Vec<AccountMeta> {
+    vec![
+        AccountMeta::new(admin, true),
+        AccountMeta::new(protocol_config, false),
+        AccountMeta::new(protocol_fee_vault, false),
+        AccountMeta::new_readonly(spl_token_interface::ID, false),
+    ]
+}
+
+fn admin_close_protocol(env: &mut TestEnv, signer: &Keypair) -> Result<(), String> {
+    let (config_pda, _) = env.protocol_config_pda();
+    let (fee_vault_pda, _) = env.protocol_fee_vault_pda();
+    let metas =
+        metas_admin_close_protocol(signer.pubkey(), config_pda, fee_vault_pda);
+    let ix = build_ix(
+        metas,
+        poolver_core::instruction::AdminCloseProtocol {}.data(),
+    );
+    send_ix(&mut env.svm, signer, ix)
+}
+
+#[test]
+fn t20_admin_close_protocol_happy_then_reinit_with_new_mint() {
+    let mut env = TestEnv::new();
+    let (config_pda, fee_vault_pda) = init_protocol(&mut env);
+
+    // Pre-conditions: both accounts are live.
+    assert!(env.account_exists(&config_pda));
+    assert!(env.account_exists(&fee_vault_pda));
+
+    // Close. Admin signs.
+    let admin = env.admin.insecure_clone();
+    admin_close_protocol(&mut env, &admin).expect("admin_close_protocol");
+
+    // Both accounts must be gone (zero lamports / no data).
+    assert!(
+        !env.account_exists(&config_pda),
+        "ProtocolConfig must be closed"
+    );
+    assert!(
+        !env.account_exists(&fee_vault_pda),
+        "protocol_fee_vault must be closed"
+    );
+
+    // Re-init with a *different* mint succeeds.
+    let new_mint = env.create_extra_usdc_mint();
+    assert_ne!(
+        new_mint, env.usdc_mint,
+        "test bug: extra mint must differ from original"
+    );
+
+    let metas = metas_initialize_protocol(
+        env.admin.pubkey(),
+        config_pda,
+        new_mint,
+        fee_vault_pda,
+    );
+    let ix = build_ix(
+        metas,
+        poolver_core::instruction::InitializeProtocol {}.data(),
+    );
+    send_ix(&mut env.svm, &admin, ix).expect("re-initialize_protocol with new mint");
+
+    // The new ProtocolConfig points at the new mint.
+    let cfg = env.fetch_protocol_config();
+    assert_eq!(cfg.usdc_mint, new_mint, "rotation didn't take");
+    assert_eq!(cfg.admin, env.admin.pubkey());
+    assert_eq!(cfg.protocol_fee_vault, fee_vault_pda);
+}
+
+#[test]
+fn t21_admin_close_protocol_rejects_non_admin() {
+    let mut env = TestEnv::new();
+    let (config_pda, fee_vault_pda) = init_protocol(&mut env);
+
+    // Imposter tries to close.
+    let imposter = Keypair::new();
+    env.svm.airdrop(&imposter.pubkey(), 10 * SOL).unwrap();
+
+    let res = admin_close_protocol(&mut env, &imposter);
+    assert!(res.is_err(), "non-admin must NOT be able to close protocol");
+
+    // Both accounts still live after the failed call.
+    assert!(env.account_exists(&config_pda));
+    assert!(env.account_exists(&fee_vault_pda));
+}
