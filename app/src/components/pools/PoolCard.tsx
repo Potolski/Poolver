@@ -1,16 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { PoolverMark } from "@/components/brand/PoolverLogo";
-import { fmtUSD, type Pool } from "@/lib/mock-data";
+import type { PoolView } from "@poolver/client";
+import { microUsdcToHuman } from "@poolver/client";
+import BN from "bn.js";
 
-function StatusChip({ s }: { s: Pool["status"] }) {
-  const map = {
-    active: { label: "● ACTIVE", color: "var(--acc)", bg: "var(--acc-tint)" },
-    forming: { label: "◐ FORMING", color: "var(--warn)", bg: "oklch(0.3 0.1 75)" },
-    closing: { label: "◉ CLOSING", color: "var(--fg-2)", bg: "var(--bg-3)" },
-  } as const;
-  const m = map[s];
+import { PoolverMark } from "@/components/brand/PoolverLogo";
+import { fmtUSD, fmtCountdown } from "@/lib/format";
+import { derivePoolStatus } from "@/lib/types";
+
+const STATUS_STYLES = {
+  forming: { label: "◐ FORMING", color: "var(--warn)", bg: "oklch(0.3 0.1 75)" },
+  active: { label: "● ACTIVE", color: "var(--acc)", bg: "var(--acc-tint)" },
+  completed: { label: "◉ COMPLETE", color: "var(--fg-2)", bg: "var(--bg-3)" },
+} as const;
+
+function StatusChip({ status }: { status: keyof typeof STATUS_STYLES }) {
+  const m = STATUS_STYLES[status];
   return (
     <span
       style={{
@@ -32,18 +38,43 @@ function StatusChip({ s }: { s: Pool["status"] }) {
 }
 
 interface PoolCardProps {
-  p: Pool;
+  pool: PoolView;
   featured?: boolean;
 }
 
-export function PoolCard({ p, featured }: PoolCardProps) {
-  const isForming = p.status === "forming";
-  const cap = p.memberCap ?? p.members;
-  const fill = isForming ? p.members / cap : p.round / p.duration;
+export function PoolCard({ pool, featured }: PoolCardProps) {
+  const status = derivePoolStatus(pool);
+  const monthlyHuman = Number(microUsdcToHuman(pool.contributionAmount));
+  const lifetimeMicro = pool.contributionAmount.muln(pool.totalMonths);
+  const lifetimeHuman = Number(microUsdcToHuman(lifetimeMicro));
+
+  const isForming = status === "forming";
+  const fill =
+    isForming
+      ? pool.participantCount / 12
+      : pool.totalMonths > 0
+        ? pool.currentMonth / pool.totalMonths
+        : 0;
   const barColor = isForming ? "var(--warn)" : "var(--acc)";
 
+  const now = Math.floor(Date.now() / 1000);
+  const monthEnded = pool.currentMonthStartedAt.add(pool.monthDurationSeconds);
+  const secsLeft = monthEnded.sub(new BN(now)).toNumber();
+  const nextDraw =
+    status === "active" && Number.isFinite(secsLeft)
+      ? fmtCountdown(secsLeft)
+      : isForming
+        ? "—"
+        : "settled";
+
+  const addr = pool.publicKey.toBase58();
+  const idShort = `PLVR-${addr.slice(0, 4).toUpperCase()}`;
+
   return (
-    <Link href={`/group/${p.address ?? p.id}`} className={`pool-card ${featured ? "featured" : ""}`}>
+    <Link
+      href={`/pool/${addr}`}
+      className={`pool-card ${featured ? "featured" : ""}`}
+    >
       {featured && <div className="pool-featured-badge">YOUR POSITION</div>}
       <div className="pool-card-head">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -57,7 +88,7 @@ export function PoolCard({ p, featured }: PoolCardProps) {
                 fontWeight: 500,
               }}
             >
-              {p.id}
+              {idShort}
             </div>
             <div
               style={{
@@ -68,11 +99,11 @@ export function PoolCard({ p, featured }: PoolCardProps) {
                 marginTop: 2,
               }}
             >
-              {p.chain} · {p.asset}
+              Solana · USDC · Tier {pool.tier === "vault" ? "0" : "1"}
             </div>
           </div>
         </div>
-        <StatusChip s={p.status} />
+        <StatusChip status={status} />
       </div>
 
       <div className="pool-hero">
@@ -85,7 +116,7 @@ export function PoolCard({ p, featured }: PoolCardProps) {
               textTransform: "uppercase",
             }}
           >
-            Pool size
+            Lifetime pool
           </div>
           <div
             style={{
@@ -98,7 +129,7 @@ export function PoolCard({ p, featured }: PoolCardProps) {
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {fmtUSD(p.total)}
+            {fmtUSD(lifetimeHuman * 12)}
           </div>
         </div>
         <div style={{ textAlign: "right" }}>
@@ -122,7 +153,7 @@ export function PoolCard({ p, featured }: PoolCardProps) {
               letterSpacing: "-0.01em",
             }}
           >
-            ${p.monthly.toLocaleString()}
+            ${monthlyHuman.toLocaleString()}
           </div>
         </div>
       </div>
@@ -141,10 +172,12 @@ export function PoolCard({ p, featured }: PoolCardProps) {
         >
           <span>
             {isForming
-              ? `FILLING ${p.members}/${cap}`
-              : `ROUND ${String(p.round).padStart(2, "0")} / ${p.duration}`}
+              ? `FILLING ${pool.participantCount}/12`
+              : `MONTH ${String(pool.currentMonth).padStart(2, "0")} / ${pool.totalMonths}`}
           </span>
-          <span style={{ color: "var(--fg-4)" }}>{Math.round(fill * 100)}%</span>
+          <span style={{ color: "var(--fg-4)" }}>
+            {Math.round(fill * 100)}%
+          </span>
         </div>
         <div
           style={{
@@ -157,7 +190,7 @@ export function PoolCard({ p, featured }: PoolCardProps) {
           <div
             style={{
               height: "100%",
-              width: `${fill * 100}%`,
+              width: `${Math.min(100, fill * 100)}%`,
               background: barColor,
               boxShadow: `0 0 8px ${barColor}`,
             }}
@@ -170,35 +203,27 @@ export function PoolCard({ p, featured }: PoolCardProps) {
           <span>Next draw</span>
           <span
             className="v"
-            style={{ color: p.status === "active" ? "var(--acc)" : "var(--fg-3)" }}
+            style={{ color: status === "active" ? "var(--acc)" : "var(--fg-3)" }}
           >
-            {p.nextDraw}
+            {nextDraw}
           </span>
         </div>
         <div className="pool-kv-row">
-          <span>Collateral</span>
-          <span className="v">{p.ratio}%</span>
+          <span>Tier</span>
+          <span className="v">
+            {pool.tier === "vault" ? "Vault (0)" : "DeFi (1)"}
+          </span>
         </div>
         <div className="pool-kv-row">
-          <span>Poolver rep</span>
-          <span className="v">{p.rep ? `${p.rep} / 1000` : "—"}</span>
+          <span>Contributed</span>
+          <span className="v">
+            {fmtUSD(Number(microUsdcToHuman(pool.totalContributed)))}
+          </span>
         </div>
         <div className="pool-kv-row">
-          <span>On-time rate</span>
-          <span
-            className="v"
-            style={{
-              color:
-                p.onTime == null
-                  ? "var(--fg-3)"
-                  : p.onTime >= 95
-                    ? "var(--acc)"
-                    : p.onTime >= 85
-                      ? "var(--fg)"
-                      : "var(--err)",
-            }}
-          >
-            {p.onTime != null ? `${p.onTime}%` : "—"}
+          <span>Distributed</span>
+          <span className="v">
+            {fmtUSD(Number(microUsdcToHuman(pool.totalDistributed)))}
           </span>
         </div>
       </div>
@@ -213,8 +238,8 @@ export function PoolCard({ p, featured }: PoolCardProps) {
           }}
         >
           {isForming
-            ? `OPENS @ ${cap}/${cap}`
-            : `${p.duration - p.round} rounds remaining`}
+            ? `OPENS @ 12/12`
+            : `${pool.totalMonths - pool.currentMonth} months remaining`}
         </span>
         <span
           style={{

@@ -1,20 +1,29 @@
-export const PROGRAM_ID =
-  process.env.NEXT_PUBLIC_PROGRAM_ID ||
-  "Fz4KqVayYMmRyToZxJzErd9qRsnh8Bdq84yicvhv4114";
-
-export const USDC_MINT =
-  process.env.NEXT_PUBLIC_USDC_MINT ||
-  "27GAbtwSgLHi53dhfTfika5jKjjSn38uEVpP29ki9nDw";
+export {
+  POOLVER_CORE_PROGRAM_ID,
+  POOLVER_RESERVE_PROGRAM_ID,
+  POOLVER_YIELD_VAULT_PROGRAM_ID,
+  POOLVER_YIELD_DEFI_PROGRAM_ID,
+  USDC_MINT_DEVNET_DEFAULT,
+  USDC_MINT_MAINNET,
+  USDC_DECIMALS,
+  POOL_SIZE,
+  TOTAL_MONTHS,
+  MIN_CONTRIBUTION,
+  MAX_CONTRIBUTION,
+  DEFAULT_BID_WINDOW_SECS,
+  DEFAULT_REVEAL_WINDOW_SECS,
+  DEFAULT_MONTH_DURATION_SECS,
+  DEFAULT_PROTOCOL_FEE_BPS,
+  DEFAULT_VAULT_RESERVE_FEE_BPS,
+  DEFAULT_DEFI_RESERVE_FEE_BPS,
+  BID_STAKE_BPS,
+  BID_CAP_BPS,
+  LATE_PENALTY_BPS,
+  BPS_DENOMINATOR,
+  GRACE_PERIOD_SECS,
+  SUSPENSION_THRESHOLD_SECS,
+  LIQUIDATION_THRESHOLD_SECS,
+} from "@poolver/client";
 
 export const DEVNET_RPC =
   process.env.NEXT_PUBLIC_SOLANA_RPC || "https://api.devnet.solana.com";
-
-export const USDC_DECIMALS = 6;
-
-export const GROUP_SEED = "group";
-export const MEMBER_SEED = "member";
-export const ROUND_SEED = "round";
-export const VAULT_SEED = "vault";
-export const INSURANCE_SEED = "insurance";
-export const TREASURY_SEED = "treasury";
-export const REPUTATION_SEED = "reputation";

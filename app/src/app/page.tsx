@@ -1,15 +1,29 @@
 "use client";
 
 import Link from "next/link";
+import BN from "bn.js";
+import { microUsdcToHuman } from "@poolver/client";
 import { PoolverMark } from "@/components/brand/PoolverLogo";
 import { Ticker } from "@/components/layout/Ticker";
 import { SectionHead } from "@/components/layout/SectionHead";
-import { PoolCard } from "@/components/pools/PoolCard";
-import { useGroups } from "@/hooks/useGroups";
+import { usePools } from "@/hooks/usePools";
+import { POOLVER_CORE_PROGRAM_ID } from "@/lib/constants";
+import { fmtUSD } from "@/lib/format";
+import { truncateAddress } from "@/lib/utils";
 
 export default function Home() {
-  const { pools, loading } = useGroups();
-  const featured = pools.slice(0, 3);
+  const { pools, loading } = usePools();
+
+  const totalContributedMicro = pools.reduce(
+    (sum, p) => sum.add(p.totalContributed),
+    new BN(0)
+  );
+  const tvl = Number(microUsdcToHuman(totalContributedMicro));
+  const activeCount = pools.filter((p) => !p.isComplete && p.currentMonth > 0).length;
+  const formingCount = pools.filter((p) => p.currentMonth === 0 && !p.isComplete).length;
+  const completedCount = pools.filter((p) => p.isComplete).length;
+
+  const programIdShort = truncateAddress(POOLVER_CORE_PROGRAM_ID.toBase58());
 
   return (
     <>
@@ -20,14 +34,17 @@ export default function Home() {
           <div>
             <div className="hero-kicker">
               <span className="sq" />
-              POOLVER PROTOCOL · v0.1.0-devnet
+              POOLVER PROTOCOL · v1.0-devnet
             </div>
             <h1 className="hero-headline">
               Pool <em>savings</em>,<br />
               not risk.
             </h1>
             <p className="hero-deck">
-              An on-chain rotating savings protocol. N wallets pool monthly USDC; a verifiable draw each round selects who receives. No administrator, no custodian, no permission — just a Solana program running 24/7.
+              An on-chain rotating savings + credit (consórcio / ROSCA) protocol.
+              12 wallets pool monthly USDC; commit-reveal sealed bids select who
+              receives each month. No administrator, no custodian — just four
+              composable Solana programs running 24/7.
             </p>
             <div
               style={{
@@ -48,8 +65,8 @@ export default function Home() {
               </Link>
             </div>
             <div className="hero-byline">
-              <span>PROGRAM 5x7K…9FrA</span>
-              <span>v0.1.0-devnet</span>
+              <span>PROGRAM {programIdShort}</span>
+              <span>v1.0-devnet</span>
               <span>AUDIT PENDING</span>
             </div>
           </div>
@@ -69,23 +86,25 @@ export default function Home() {
               <PoolverMark size={240} className="terminal-watermark" />
               <div className="metric-label">Total value locked</div>
               <div className="metric-value">
-                $22.9M<span className="tick">_</span>
+                {loading ? "…" : fmtUSD(tvl)}
+                <span className="tick">_</span>
               </div>
               <div className="metric-bar">
                 <div className="fill" />
               </div>
               <div className="metric-sub">
-                Across 12 active pools · 184 members
+                Across {pools.length} pool{pools.length === 1 ? "" : "s"} ·{" "}
+                {activeCount} active · {formingCount} forming
               </div>
               <div className="metric-kv">
                 <span className="k">Protocol fee</span>
                 <span className="v">1.50%</span>
-                <span className="k">Insurance reserve</span>
-                <span className="v">$89,214</span>
-                <span className="k">Avg. on-time rate</span>
-                <span className="v acc">95.4%</span>
-                <span className="k">Defaults to date</span>
-                <span className="v">0</span>
+                <span className="k">Reserve fee (Vault)</span>
+                <span className="v">1.50%</span>
+                <span className="k">Reserve fee (DeFi)</span>
+                <span className="v">2.50%</span>
+                <span className="k">Bid cap</span>
+                <span className="v">20%</span>
                 <span className="k">Network</span>
                 <span className="v">Solana · 400ms</span>
                 <span className="k">Settlement asset</span>
@@ -105,29 +124,28 @@ export default function Home() {
             </div>
             <h3>Rotation, not interest</h3>
             <p>
-              ROSCAs have funded families for 500+ years. You pay a fixed amount
-              monthly; one round you receive the whole pool. Over N rounds
-              everyone gets exactly what they put in — earlier liquidity for
-              whoever needs it.
+              ROSCAs have funded families for 500+ years. Each of 12 members pays
+              a fixed monthly amount; one round you receive the whole pool. Over
+              12 months everyone gets exactly what they put in — earlier
+              liquidity for whoever bids most aggressively.
             </p>
           </div>
           <div className="landing-card">
             <div className="lc-icon">◈</div>
             <h3>Trustless by construction</h3>
             <p>
-              Traditional savings circles break when the administrator vanishes
-              with the money. Poolver has no administrator. Every contribution,
-              draw, and release is a public transaction against an open Solana
-              program.
+              Traditional consórcios charge 10–20% intermediary fees and gate by
+              country. Poolver replaces the operator with four open-source
+              Anchor programs. Protocol fee: 1.5%. No country lock-in.
             </p>
           </div>
           <div className="landing-card">
             <div className="lc-icon">◆</div>
-            <h3>Collateral + reputation</h3>
+            <h3>Reputation + reserves</h3>
             <p>
-              25% locked collateral + tranched release + insurance reserve +
-              on-chain reputation scoring. Four layers of enforcement mean
-              defaulting costs more than walking away.
+              Reputation-graduated collateral, tier-segregated reserve funds,
+              commit-reveal sealed bids, and a default cascade with 30-day cure.
+              Four layers of enforcement instead of one.
             </p>
           </div>
         </div>
@@ -140,24 +158,24 @@ export default function Home() {
             <div className="lh-n">01</div>
             <div className="lh-k">JOIN</div>
             <div className="lh-t">
-              Deposit 25% collateral + first month&apos;s contribution. Your
-              slot activates when the pool fills.
+              KYC + reputation init. Your slot activates when the pool fills to
+              12 participants.
             </div>
           </div>
           <div className="lh-step">
             <div className="lh-n">02</div>
-            <div className="lh-k">CONTRIBUTE</div>
+            <div className="lh-k">CONTRIBUTE & BID</div>
             <div className="lh-t">
-              Pay your monthly USDC within a 7-day window. Optionally bid for
-              priority in the auction slot.
+              Pay your monthly USDC. Optionally place a sealed bid (1% stake)
+              for the round&apos;s pot.
             </div>
           </div>
           <div className="lh-step">
             <div className="lh-n">03</div>
-            <div className="lh-k">DRAW &amp; RECEIVE</div>
+            <div className="lh-k">REVEAL & RECEIVE</div>
             <div className="lh-t">
-              Switchboard VRF selects a recipient. Payout releases in three
-              tranches as you keep paying.
+              Reveal your bid; highest wins (or VRF lottery if no bids). Post
+              collateral, claim payout.
             </div>
           </div>
         </div>
@@ -170,86 +188,78 @@ export default function Home() {
             <div className="lbl">
               <PoolverMark size={11} /> Active pools
             </div>
-            <div className="v">12</div>
-            <div className="sub">5 forming · 5 active · 2 closing</div>
+            <div className="v">{loading ? "…" : pools.length}</div>
+            <div className="sub">
+              {formingCount} forming · {activeCount} active · {completedCount}{" "}
+              complete
+            </div>
             <div className="mini-bar">
-              <div className="fill" style={{ width: "85%" }} />
+              <div
+                className="fill"
+                style={{
+                  width: `${pools.length === 0 ? 0 : Math.min(100, (activeCount / pools.length) * 100)}%`,
+                }}
+              />
             </div>
           </div>
           <div className="stat">
             <div className="lbl">
-              <PoolverMark size={11} /> Total locked
+              <PoolverMark size={11} /> Total contributed
             </div>
-            <div className="v">$22.9M</div>
-            <div className="sub">USDC · across Poolvers</div>
+            <div className="v">{loading ? "…" : fmtUSD(tvl)}</div>
+            <div className="sub">USDC · cumulative across pools</div>
             <div className="mini-bar">
-              <div className="fill" style={{ width: "70%" }} />
+              <div className="fill" style={{ width: tvl > 0 ? "70%" : "0%" }} />
             </div>
           </div>
           <div className="stat">
             <div className="lbl">
-              <PoolverMark size={11} /> Insurance reserve
+              <PoolverMark size={11} /> Programs
             </div>
-            <div className="v">$89K</div>
-            <div className="sub">5% of all contributions accrues</div>
+            <div className="v">4</div>
+            <div className="sub">core · reserve · vault · defi</div>
             <div className="mini-bar">
-              <div className="fill" style={{ width: "45%" }} />
+              <div className="fill" style={{ width: "100%" }} />
             </div>
           </div>
         </div>
       </section>
 
       <section className="shell section">
-        <SectionHead
-          n="04"
-          title="Poolvers <em>now forming</em>"
-          meta="FEATURED"
-        />
-        {loading ? (
+        <SectionHead n="04" title="Poolvers <em>now forming</em>" meta="FEATURED" />
+        <div
+          style={{
+            padding: "48px 16px",
+            textAlign: "center",
+            border: "1px dashed var(--line)",
+            borderRadius: 2,
+          }}
+        >
           <div
             style={{
-              padding: "48px 16px",
-              textAlign: "center",
-              color: "var(--fg-3)",
               fontFamily: "var(--mono)",
-              fontSize: 12,
-              letterSpacing: "0.1em",
-              border: "1px dashed var(--line)",
-              borderRadius: 2,
+              fontSize: 11,
+              letterSpacing: "0.14em",
+              color: "var(--fg-4)",
+              marginBottom: 8,
             }}
           >
-            Loading pools from devnet…
+            {loading ? "LOADING…" : `${pools.length} POOL${pools.length === 1 ? "" : "S"} ON DEVNET`}
           </div>
-        ) : featured.length === 0 ? (
-          <div
-            style={{
-              padding: "48px 16px",
-              textAlign: "center",
-              border: "1px dashed var(--line)",
-              borderRadius: 2,
-            }}
-          >
-            <div style={{ color: "var(--fg-2)", fontSize: 14, marginBottom: 16 }}>
-              No pools on devnet yet. Be the first.
-            </div>
-            <Link href="/create" className="btn primary">
+          <div style={{ color: "var(--fg-2)", fontSize: 14, marginBottom: 16 }}>
+            {pools.length === 0
+              ? "Be the first to create a Poolver."
+              : "Browse the live index to see all pools and their state."}
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+            <Link href="/pools" className="btn primary">
+              ▶ Browse pools
+            </Link>
+            <Link href="/create" className="btn">
               + Create a pool
             </Link>
           </div>
-        ) : (
-          <>
-            <div className="pools-grid">
-              {featured.map((p) => (
-                <PoolCard key={p.address ?? p.id} p={p} featured={p.featured} />
-              ))}
-            </div>
-            <div style={{ marginTop: 20, textAlign: "center" }}>
-              <Link href="/pools" className="btn lg">
-                All pools ({pools.length}) →
-              </Link>
-            </div>
-          </>
-        )}
+        </div>
       </section>
 
       <section className="shell section">
@@ -257,7 +267,7 @@ export default function Home() {
           <PoolverMark size={56} className="cta-mark" />
           <h2>Ready to join a Poolver?</h2>
           <p>
-            Browse 12 active pools, or configure your own in under 5 minutes.
+            Browse live devnet pools, or configure your own in under 5 minutes.
           </p>
           <div
             style={{

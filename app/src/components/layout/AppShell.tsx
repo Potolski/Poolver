@@ -3,6 +3,7 @@
 import { TopBar } from "./TopBar";
 import { Footer } from "./Footer";
 import { WalletRedirect } from "@/components/wallet/WalletRedirect";
+import { OnboardingGate } from "@/components/onboarding/OnboardingGate";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -10,6 +11,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <TopBar />
       <WalletRedirect />
       <main>{children}</main>
+      <OnboardingGate />
       <Footer />
     </>
   );

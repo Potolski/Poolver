@@ -21,7 +21,7 @@ export function TopBar() {
 
   function isActive(href: string, key: string): boolean {
     if (key === "landing") return pathname === "/";
-    if (key === "pools") return pathname === "/pools" || pathname.startsWith("/group");
+    if (key === "pools") return pathname === "/pools" || pathname.startsWith("/pool");
     return pathname.startsWith(href);
   }
 
@@ -43,7 +43,7 @@ export function TopBar() {
       <Link href="/" className="brand">
         <PoolverMark size={22} />
         <b>Poolver</b>
-        <span className="dim2 topbar-tag">v0.1</span>
+        <span className="dim2 topbar-tag">v1.0</span>
       </Link>
       <nav className="topbar-nav-desktop">
         {NAV.map((item) => (

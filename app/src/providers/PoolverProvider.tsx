@@ -2,78 +2,86 @@
 
 import { createContext, useContext, useMemo } from "react";
 import { useAppKitConnection } from "@reown/appkit-adapter-solana/react";
-import {
-  useAppKitProvider,
-  useAppKitAccount,
-} from "@reown/appkit/react";
+import { useAppKitProvider, useAppKitAccount } from "@reown/appkit/react";
 import type { Provider } from "@reown/appkit-adapter-solana/react";
-import { AnchorProvider, Program } from "@coral-xyz/anchor";
-import { PublicKey } from "@solana/web3.js";
-import idl from "@/lib/idl/poolver.json";
+import {
+  Connection,
+  PublicKey,
+  Transaction,
+  VersionedTransaction,
+} from "@solana/web3.js";
+import { PoolverClient, type PoolverClientOpts } from "@poolver/client";
 
-const PROGRAM_ID = new PublicKey(
-  process.env.NEXT_PUBLIC_PROGRAM_ID ||
-    "Fz4KqVayYMmRyToZxJzErd9qRsnh8Bdq84yicvhv4114"
-);
+import { appKitToAnchorWallet, type AnchorWalletShape } from "@/lib/wallet-bridge";
+import { DEVNET_RPC } from "@/lib/constants";
 
 interface PoolverContextType {
-  program: Program | null;
-  programId: PublicKey;
-  provider: AnchorProvider | null;
+  client: PoolverClient;
   connected: boolean;
   address: string | undefined;
+  publicKey: PublicKey | null;
 }
 
-const PoolverContext = createContext<PoolverContextType>({
-  program: null,
-  programId: PROGRAM_ID,
-  provider: null,
-  connected: false,
-  address: undefined,
-});
+const READ_ONLY_PUBKEY = PublicKey.default;
+
+function makeReadOnlyWallet(): AnchorWalletShape {
+  return {
+    publicKey: READ_ONLY_PUBKEY,
+    async signTransaction<T extends Transaction | VersionedTransaction>(_tx: T): Promise<T> {
+      throw new Error("read-only client cannot sign");
+    },
+    async signAllTransactions<T extends Transaction | VersionedTransaction>(_txs: T[]): Promise<T[]> {
+      throw new Error("read-only client cannot sign");
+    },
+  };
+}
+
+function buildReadOnlyClient(connection: Connection): PoolverClient {
+  return new PoolverClient({
+    connection,
+    wallet: makeReadOnlyWallet() as unknown as PoolverClientOpts["wallet"],
+  });
+}
+
+const PoolverContext = createContext<PoolverContextType | null>(null);
 
 export function PoolverProvider({ children }: { children: React.ReactNode }) {
   const { connection } = useAppKitConnection();
   const { walletProvider } = useAppKitProvider<Provider>("solana");
   const { address, isConnected } = useAppKitAccount();
 
-  const provider = useMemo(() => {
-    if (!isConnected || !address || !walletProvider || !connection) {
-      return null;
-    }
+  const publicKey = useMemo(() => {
+    if (!address) return null;
     try {
-      return new AnchorProvider(
-        connection,
-        {
-          publicKey: new PublicKey(address),
-          signTransaction: walletProvider.signTransaction.bind(walletProvider),
-          signAllTransactions:
-            walletProvider.signAllTransactions.bind(walletProvider),
-        },
-        { commitment: "confirmed" }
-      );
+      return new PublicKey(address);
     } catch {
       return null;
     }
-  }, [connection, walletProvider, address, isConnected]);
+  }, [address]);
 
-  const program = useMemo(() => {
-    if (!provider) return null;
-    try {
-      return new Program(idl as never, provider);
-    } catch {
-      return null;
+  const client = useMemo<PoolverClient>(() => {
+    const conn = connection ?? new Connection(DEVNET_RPC, "confirmed");
+    if (!isConnected || !publicKey || !walletProvider) {
+      return buildReadOnlyClient(conn);
     }
-  }, [provider]);
+    try {
+      const wallet = appKitToAnchorWallet(walletProvider, publicKey);
+      return new PoolverClient({
+        connection: conn,
+        wallet: wallet as unknown as PoolverClientOpts["wallet"],
+      });
+    } catch {
+      return buildReadOnlyClient(conn);
+    }
+  }, [connection, walletProvider, publicKey, isConnected]);
 
   return (
     <PoolverContext.Provider
       value={{
-        program,
-        programId: PROGRAM_ID,
-        provider,
+        client,
         connected: isConnected,
         address,
+        publicKey,
       }}
     >
       {children}
@@ -81,6 +89,10 @@ export function PoolverProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function usePoolverProgram() {
-  return useContext(PoolverContext);
+export function usePoolver(): PoolverContextType {
+  const ctx = useContext(PoolverContext);
+  if (!ctx) {
+    throw new Error("usePoolver must be used inside <PoolverProvider>");
+  }
+  return ctx;
 }

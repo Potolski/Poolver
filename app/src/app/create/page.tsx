@@ -1,29 +1,44 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import BN from "bn.js";
 import { useAppKit } from "@reown/appkit/react";
-import { PoolverMark } from "@/components/brand/PoolverLogo";
-import { usePoolverProgram } from "@/providers/PoolverProvider";
-import { createGroupTx } from "@/lib/tx";
+import {
+  createPoolIx,
+  humanUsdcToMicro,
+  type TierName,
+} from "@poolver/client";
 
-type Tranches = "100/0/0" | "50/25/25" | "40/30/30";
-type Access = "open" | "invite";
+import { PoolverMark } from "@/components/brand/PoolverLogo";
+import { usePoolver } from "@/providers/PoolverProvider";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import { sendIxs } from "@/lib/tx-helpers";
+import { USDC_MINT_DEVNET_DEFAULT } from "@/lib/constants";
+
+type DurationPreset = "10m" | "1h" | "1d" | "30d";
 
 interface PoolConfig {
   name: string;
-  asset: "USDC" | "USDT" | "EURC";
   monthly: number;
-  duration: number;
-  memberCap: number;
-  collateralPct: number;
-  insurancePct: number;
-  biddingOn: boolean;
-  tranches: Tranches;
-  access: Access;
-  minRep: number;
+  tier: TierName;
+  duration: DurationPreset;
 }
+
+const DURATION_SECONDS: Record<DurationPreset, number> = {
+  "10m": 600,
+  "1h": 3_600,
+  "1d": 86_400,
+  "30d": 30 * 86_400,
+};
+
+const DURATION_LABEL: Record<DurationPreset, string> = {
+  "10m": "10 minutes",
+  "1h": "1 hour",
+  "1d": "1 day",
+  "30d": "30 days (default)",
+};
 
 function Field({
   label,
@@ -43,7 +58,15 @@ function Field({
   );
 }
 
-function Kv({ k, v, accent }: { k: string; v: string; accent?: boolean }) {
+function Kv({
+  k,
+  v,
+  accent,
+}: {
+  k: string;
+  v: string;
+  accent?: boolean;
+}) {
   return (
     <div className="review-kv-row">
       <span>{k}</span>
@@ -54,78 +77,60 @@ function Kv({ k, v, accent }: { k: string; v: string; accent?: boolean }) {
 
 export default function CreatePage() {
   const router = useRouter();
-  const { program, connected } = usePoolverProgram();
+  const { client, connected } = usePoolver();
+  const { state: onboardingState } = useOnboarding();
   const { open } = useAppKit();
   const [step, setStep] = useState(1);
   const [deploying, setDeploying] = useState(false);
   const [cfg, setCfg] = useState<PoolConfig>({
     name: "",
-    asset: "USDC",
-    monthly: 2500,
-    duration: 20,
-    memberCap: 20,
-    collateralPct: 25,
-    insurancePct: 5,
-    biddingOn: true,
-    tranches: "50/25/25",
-    access: "open",
-    minRep: 500,
+    monthly: 1000,
+    tier: "vault",
+    duration: "30d",
   });
 
   const set = <K extends keyof PoolConfig>(k: K, v: PoolConfig[K]) =>
     setCfg((c) => ({ ...c, [k]: v }));
 
-  const total = cfg.monthly * cfg.memberCap;
-  const yourCollateral = Math.round(
-    cfg.monthly * cfg.duration * (cfg.collateralPct / 100)
-  );
-  const protocolFee = total * 0.015;
-  const insurancePerContribution = Math.round(
-    cfg.monthly * (cfg.insurancePct / 100)
-  );
-
-  const tier =
-    cfg.minRep >= 850
-      ? "S only"
-      : cfg.minRep >= 700
-        ? "A+"
-        : cfg.minRep >= 500
-          ? "B+"
-          : cfg.minRep >= 300
-            ? "C+"
-            : "Open to all";
-
-  const trancheHint =
-    cfg.tranches === "100/0/0"
-      ? "Lump-sum release at draw. Lower enforcement."
-      : cfg.tranches === "50/25/25"
-        ? "Default. 50% at draw · 25% at +3mo · 25% at +6mo."
-        : "Conservative. 40% at draw · 30% at +3mo · 30% at +6mo.";
+  const monthlyMicro = useMemo(() => humanUsdcToMicro(cfg.monthly), [cfg.monthly]);
+  const lifetimePool = cfg.monthly * 12;
+  const protocolFee = (cfg.monthly * 12) * 0.015;
+  const reserveFee = cfg.monthly * 12 * (cfg.tier === "vault" ? 0.015 : 0.025);
+  const netReceive = lifetimePool - protocolFee - reserveFee;
 
   async function launch() {
-    if (!connected || !program) {
+    if (!connected) {
       open();
       return;
     }
-    if (cfg.asset !== "USDC") {
-      toast.error("Only USDC is supported on devnet right now");
+    if (onboardingState !== "ready") {
+      toast.error("Complete onboarding first", {
+        description:
+          onboardingState === "needs_reputation"
+            ? "Initialize your reputation account."
+            : onboardingState === "needs_kyc"
+              ? "Verify identity (demo KYC)."
+              : "Loading onboarding state…",
+      });
       return;
     }
     setDeploying(true);
     const toastId = toast.loading("Deploying pool…");
     try {
-      const { groupAddress } = await createGroupTx(program, {
-        monthlyContribution: cfg.monthly,
-        totalMembers: cfg.memberCap,
-        collateralBps: cfg.collateralPct * 100,
-        insuranceBps: cfg.insurancePct * 100,
-        description: (cfg.name || "Poolver pool").slice(0, 64),
+      const poolId = new BN(Date.now());
+      const { ix, pool } = await createPoolIx(client, {
+        poolId,
+        tier: cfg.tier,
+        contributionAmount: monthlyMicro,
+        monthDurationSeconds: new BN(DURATION_SECONDS[cfg.duration]),
+        usdcMint: USDC_MINT_DEVNET_DEFAULT,
       });
+      const sig = await sendIxs(client, [ix]);
       toast.success("Pool deployed", {
         id: toastId,
-        description: `${groupAddress.slice(0, 8)}…`,
+        description: `sig: ${sig.slice(0, 12)}…`,
       });
-      router.push(`/group/${groupAddress}`);
+      router.push(`/pool/${pool.toBase58()}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       toast.error("Deploy failed", { id: toastId, description: msg.slice(0, 200) });
@@ -133,6 +138,9 @@ export default function CreatePage() {
       setDeploying(false);
     }
   }
+
+  const onboardingBlocking =
+    connected && onboardingState !== "ready" && onboardingState !== "loading";
 
   return (
     <div
@@ -163,12 +171,12 @@ export default function CreatePage() {
         Launch a <em>Poolver</em>.
       </h1>
       <p className="hero-deck" style={{ maxWidth: "62ch" }}>
-        Configure the parameters. Deploy as a new PDA on Solana. Anyone with the
-        link can join once it&apos;s live.
+        12 participants · 12 months · USDC. Configure the parameters; deploy as
+        a new PDA on Solana. Anyone with the link can join once it&apos;s live.
       </p>
 
       <div className="create-steps">
-        {["Basics", "Risk", "Access", "Review"].map((lbl, i) => {
+        {["Basics", "Tier", "Demo", "Review"].map((lbl, i) => {
           const n = i + 1;
           const state = step === n ? "on" : step > n ? "done" : "";
           return (
@@ -193,7 +201,10 @@ export default function CreatePage() {
             <>
               <h3 className="create-h">Pool basics</h3>
               <div className="create-fields">
-                <Field label="Pool name" hint="Displayed on the pool card. Can be empty.">
+                <Field
+                  label="Pool name"
+                  hint="Local-only label (not stored on-chain)."
+                >
                   <input
                     className="create-input"
                     placeholder="e.g. Frontend devs Q2"
@@ -202,36 +213,20 @@ export default function CreatePage() {
                   />
                 </Field>
                 <Field
-                  label="Settlement asset"
-                  hint="Which SPL token the pool contributions settle in."
-                >
-                  <div className="seg">
-                    {(["USDC", "USDT", "EURC"] as const).map((a) => (
-                      <button
-                        key={a}
-                        className={`seg-btn ${cfg.asset === a ? "on" : ""}`}
-                        onClick={() => set("asset", a)}
-                      >
-                        {a}
-                      </button>
-                    ))}
-                  </div>
-                </Field>
-                <Field
                   label={`Monthly contribution — $${cfg.monthly.toLocaleString()}`}
-                  hint="Each member pays this every round."
+                  hint="Each of 12 members pays this every month. 100 ≤ amount ≤ 10,000 USDC."
                 >
                   <input
                     type="range"
                     min={100}
-                    max={15000}
-                    step={100}
+                    max={10000}
+                    step={50}
                     value={cfg.monthly}
                     onChange={(e) => set("monthly", Number(e.target.value))}
                     className="create-slider"
                   />
                   <div className="seg" style={{ marginTop: 8 }}>
-                    {[500, 1000, 2500, 5000, 10000].map((v) => (
+                    {[100, 500, 1000, 2500, 5000, 10000].map((v) => (
                       <button
                         key={v}
                         className={`seg-btn ${cfg.monthly === v ? "on" : ""}`}
@@ -243,32 +238,21 @@ export default function CreatePage() {
                   </div>
                 </Field>
                 <Field
-                  label={`Members — ${cfg.memberCap}`}
-                  hint="How many wallets must join before the pool opens."
+                  label="Pool size"
+                  hint="V1 protocol constant: 12 participants × 12 months. Not configurable."
                 >
-                  <input
-                    type="range"
-                    min={6}
-                    max={30}
-                    step={1}
-                    value={cfg.memberCap}
-                    onChange={(e) => set("memberCap", Number(e.target.value))}
-                    className="create-slider"
-                  />
-                </Field>
-                <Field
-                  label={`Duration — ${cfg.duration} rounds`}
-                  hint="Number of monthly rounds. Must equal members (one draw each)."
-                >
-                  <input
-                    type="range"
-                    min={6}
-                    max={30}
-                    step={1}
-                    value={cfg.duration}
-                    onChange={(e) => set("duration", Number(e.target.value))}
-                    className="create-slider"
-                  />
+                  <div
+                    style={{
+                      fontFamily: "var(--mono)",
+                      fontSize: 12,
+                      color: "var(--fg-3)",
+                      padding: "10px 12px",
+                      border: "1px dashed var(--line-2)",
+                      borderRadius: 3,
+                    }}
+                  >
+                    12 participants × 12 months · enforced on-chain
+                  </div>
                 </Field>
               </div>
             </>
@@ -276,111 +260,85 @@ export default function CreatePage() {
 
           {step === 2 && (
             <>
-              <h3 className="create-h">Risk &amp; collateral</h3>
+              <h3 className="create-h">Tier &amp; yield strategy</h3>
               <div className="create-fields">
                 <Field
-                  label={`Collateral — ${cfg.collateralPct}%`}
-                  hint="Locked at join. Higher = safer Poolver, more capital needed."
-                >
-                  <input
-                    type="range"
-                    min={10}
-                    max={50}
-                    step={5}
-                    value={cfg.collateralPct}
-                    onChange={(e) =>
-                      set("collateralPct", Number(e.target.value))
-                    }
-                    className="create-slider"
-                  />
-                  <div
-                    style={{
-                      fontFamily: "var(--mono)",
-                      fontSize: 11,
-                      color: "var(--fg-3)",
-                      marginTop: 6,
-                    }}
-                  >
-                    Each member locks{" "}
-                    <b style={{ color: "var(--fg)" }}>
-                      ${yourCollateral.toLocaleString()}
-                    </b>{" "}
-                    at T0.
-                  </div>
-                </Field>
-                <Field
-                  label={`Insurance allocation — ${cfg.insurancePct}%`}
-                  hint="Carved from each contribution. Covers defaults first."
-                >
-                  <input
-                    type="range"
-                    min={0}
-                    max={10}
-                    step={1}
-                    value={cfg.insurancePct}
-                    onChange={(e) =>
-                      set("insurancePct", Number(e.target.value))
-                    }
-                    className="create-slider"
-                  />
-                  <div
-                    style={{
-                      fontFamily: "var(--mono)",
-                      fontSize: 11,
-                      color: "var(--fg-3)",
-                      marginTop: 6,
-                    }}
-                  >
-                    Per contribution:{" "}
-                    <b style={{ color: "var(--fg)" }}>
-                      ${insurancePerContribution}
-                    </b>{" "}
-                    → insurance PDA.
-                  </div>
-                </Field>
-                <Field
-                  label="Tranched release"
-                  hint="How winnings unlock after a draw. Enforces post-win payment."
-                >
-                  <div className="seg">
-                    {(["100/0/0", "50/25/25", "40/30/30"] as const).map((v) => (
-                      <button
-                        key={v}
-                        className={`seg-btn ${cfg.tranches === v ? "on" : ""}`}
-                        onClick={() => set("tranches", v)}
-                      >
-                        {v}%
-                      </button>
-                    ))}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: "var(--mono)",
-                      fontSize: 11,
-                      color: "var(--fg-3)",
-                      marginTop: 6,
-                    }}
-                  >
-                    {trancheHint}
-                  </div>
-                </Field>
-                <Field
-                  label="Bidding (Lance) slot"
-                  hint="Enables the optional auction track for priority."
+                  label="Tier"
+                  hint="Vault: passive USDC custody, 1.5% reserve. DeFi: Kamino-mocked yield, 2.5% reserve. Choose Vault for the safest demo."
                 >
                   <div className="seg">
                     <button
-                      className={`seg-btn ${cfg.biddingOn ? "on" : ""}`}
-                      onClick={() => set("biddingOn", true)}
+                      className={`seg-btn ${cfg.tier === "vault" ? "on" : ""}`}
+                      onClick={() => set("tier", "vault")}
                     >
-                      ON
+                      Tier 0 · Vault
                     </button>
                     <button
-                      className={`seg-btn ${!cfg.biddingOn ? "on" : ""}`}
-                      onClick={() => set("biddingOn", false)}
+                      className={`seg-btn ${cfg.tier === "defi" ? "on" : ""}`}
+                      onClick={() => set("tier", "defi")}
                     >
-                      OFF
+                      Tier 1 · DeFi (experimental)
                     </button>
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "var(--mono)",
+                      fontSize: 11,
+                      color: "var(--fg-3)",
+                      marginTop: 8,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {cfg.tier === "vault" ? (
+                      <>
+                        ◆ Selected:{" "}
+                        <b style={{ color: "var(--acc)" }}>Tier 0 · Vault</b>{" "}
+                        — passive USDC custody. Recommended for V1 demo.
+                      </>
+                    ) : (
+                      <>
+                        ⚠ Selected:{" "}
+                        <b style={{ color: "var(--warn)" }}>
+                          Tier 1 · DeFi
+                        </b>{" "}
+                        — Kamino integration is mocked in V1; yield arrives via{" "}
+                        <code className="docs-code">mock_inject_yield</code>.
+                      </>
+                    )}
+                  </div>
+                </Field>
+                <Field
+                  label="Bidding"
+                  hint="Sealed-bid commit-reveal auction is V1 baseline (not optional)."
+                >
+                  <div
+                    style={{
+                      fontFamily: "var(--mono)",
+                      fontSize: 12,
+                      color: "var(--fg-3)",
+                      padding: "10px 12px",
+                      border: "1px dashed var(--line-2)",
+                      borderRadius: 3,
+                    }}
+                  >
+                    ✓ Always on · 1% stake · 20% of net pot bid cap · INV-14
+                  </div>
+                </Field>
+                <Field
+                  label="Collateral"
+                  hint="V1 uses reputation-graduated collateral computed on-chain (100/70/50% × baseline). Not configurable."
+                >
+                  <div
+                    style={{
+                      fontFamily: "var(--mono)",
+                      fontSize: 12,
+                      color: "var(--fg-3)",
+                      padding: "10px 12px",
+                      border: "1px dashed var(--line-2)",
+                      borderRadius: 3,
+                    }}
+                  >
+                    Reputation-graduated · enforced on-chain
                   </div>
                 </Field>
               </div>
@@ -389,67 +347,53 @@ export default function CreatePage() {
 
           {step === 3 && (
             <>
-              <h3 className="create-h">Access</h3>
+              <h3 className="create-h">Demo cadence</h3>
               <div className="create-fields">
                 <Field
-                  label="Who can join"
-                  hint="Open: anyone meeting the rep threshold. Invite: a whitelist you define."
+                  label="Month duration"
+                  hint="Default = 30 days. Pick a shorter duration to demo a full cycle in minutes."
                 >
                   <div className="seg">
-                    <button
-                      className={`seg-btn ${cfg.access === "open" ? "on" : ""}`}
-                      onClick={() => set("access", "open")}
-                    >
-                      Open
-                    </button>
-                    <button
-                      className={`seg-btn ${cfg.access === "invite" ? "on" : ""}`}
-                      onClick={() => set("access", "invite")}
-                    >
-                      Invite-only
-                    </button>
+                    {(["10m", "1h", "1d", "30d"] as const).map((d) => (
+                      <button
+                        key={d}
+                        className={`seg-btn ${cfg.duration === d ? "on" : ""}`}
+                        onClick={() => set("duration", d)}
+                      >
+                        {d}
+                      </button>
+                    ))}
                   </div>
-                </Field>
-                <Field
-                  label={`Minimum wallet reputation — ${cfg.minRep}`}
-                  hint="Wallets below this cannot join. 0 = no gate."
-                >
-                  <input
-                    type="range"
-                    min={0}
-                    max={900}
-                    step={50}
-                    value={cfg.minRep}
-                    onChange={(e) => set("minRep", Number(e.target.value))}
-                    className="create-slider"
-                  />
                   <div
                     style={{
                       fontFamily: "var(--mono)",
                       fontSize: 11,
                       color: "var(--fg-3)",
-                      marginTop: 6,
+                      marginTop: 8,
                     }}
                   >
-                    Tier gate:{" "}
-                    <b style={{ color: "var(--acc)" }}>{tier}</b>
+                    Selected:{" "}
+                    <b style={{ color: "var(--acc)" }}>
+                      {DURATION_LABEL[cfg.duration]}
+                    </b>{" "}
+                    · {DURATION_SECONDS[cfg.duration].toLocaleString()} seconds
                   </div>
                 </Field>
                 <Field
-                  label="Additional controls"
-                  hint="Reserved for future: peer-vouch requirements, KYC wrappers, jurisdiction filters."
+                  label="poolId"
+                  hint="Auto-generated from current timestamp. Used in the PDA derivation; doesn't need to be remembered."
                 >
                   <div
                     style={{
                       fontFamily: "var(--mono)",
-                      fontSize: 11,
-                      color: "var(--fg-4)",
+                      fontSize: 12,
+                      color: "var(--fg-3)",
                       padding: "10px 12px",
                       border: "1px dashed var(--line-2)",
                       borderRadius: 3,
                     }}
                   >
-                    ◆ Post-v0.1 feature. Default: none.
+                    poolId = Date.now() at deploy
                   </div>
                 </Field>
               </div>
@@ -495,47 +439,36 @@ export default function CreatePage() {
                         marginTop: 2,
                       }}
                     >
-                      Solana · {cfg.asset}
+                      Solana · USDC · Tier {cfg.tier === "vault" ? "0" : "1"}
                     </div>
                   </div>
                 </div>
                 <div className="review-kv">
-                  <Kv k="Pool size / round" v={`$${total.toLocaleString()}`} />
                   <Kv
-                    k="Total lifetime volume"
-                    v={`$${(total * cfg.duration).toLocaleString()}`}
-                  />
-                  <Kv
-                    k="Members × duration"
-                    v={`${cfg.memberCap} × ${cfg.duration}`}
+                    k="Pool size (lifetime)"
+                    v={`$${lifetimePool.toLocaleString()}`}
                   />
                   <Kv
                     k="Each member pays"
-                    v={`$${cfg.monthly.toLocaleString()} × ${cfg.duration} = $${(cfg.monthly * cfg.duration).toLocaleString()}`}
+                    v={`$${cfg.monthly.toLocaleString()} × 12 = $${(cfg.monthly * 12).toLocaleString()}`}
                   />
                   <Kv
                     k="Each member receives"
-                    v={`$${Math.round(total * 0.985).toLocaleString()} (pool − 1.5% fee)`}
+                    v={`$${Math.round(netReceive).toLocaleString()} (gross − fees)`}
                     accent
                   />
                   <Kv
-                    k="Collateral (per member)"
-                    v={`$${yourCollateral.toLocaleString()} locked at join`}
+                    k="Tier"
+                    v={cfg.tier === "vault" ? "Tier 0 · Vault" : "Tier 1 · DeFi"}
                   />
+                  <Kv k="Month duration" v={DURATION_LABEL[cfg.duration]} />
+                  <Kv k="Protocol fee" v="1.50% per month" />
                   <Kv
-                    k="Insurance carve"
-                    v={`${cfg.insurancePct}% of contributions → insurance_pda`}
+                    k="Reserve fee"
+                    v={cfg.tier === "vault" ? "1.50%" : "2.50%"}
                   />
-                  <Kv k="Tranched release" v={cfg.tranches} />
-                  <Kv k="Bidding" v={cfg.biddingOn ? "Enabled" : "Disabled"} />
-                  <Kv
-                    k="Access"
-                    v={
-                      cfg.access === "open"
-                        ? `Open · min rep ${cfg.minRep}`
-                        : "Invite-only"
-                    }
-                  />
+                  <Kv k="Bid cap" v="20% of net pot" />
+                  <Kv k="Bid stake" v="1% of contribution (refundable)" />
                 </div>
               </div>
 
@@ -549,18 +482,38 @@ export default function CreatePage() {
                     lineHeight: 1.7,
                   }}
                 >
-                  1. Sign program instruction{" "}
-                  <code className="docs-code">create_pool</code>
+                  1. Sign{" "}
+                  <code className="docs-code">create_pool</code> via wallet
                   <br />
-                  2. Seed pool_pda with your collateral + first contribution
+                  2. Pool PDA derived from{" "}
+                  <code className="docs-code">[b&quot;pool&quot;, creator, poolId]</code>
                   <br />
-                  3. Pool becomes visible in /pools with status{" "}
+                  3. Pool appears in /pools with status{" "}
                   <span style={{ color: "var(--warn)" }}>FORMING</span>
                   <br />
-                  4. First draw auto-triggers when {cfg.memberCap}/
-                  {cfg.memberCap} join
+                  4. Auto-starts month 1 when 12/12 wallets join
                 </div>
               </div>
+
+              {onboardingBlocking && (
+                <div
+                  style={{
+                    marginTop: 20,
+                    padding: 14,
+                    border: "1px solid var(--warn)",
+                    borderRadius: 3,
+                    background: "var(--bg-1)",
+                    fontFamily: "var(--mono)",
+                    fontSize: 12,
+                    color: "var(--warn)",
+                  }}
+                >
+                  ⚠ Complete onboarding before deploy:{" "}
+                  {onboardingState === "needs_reputation"
+                    ? "initialize your reputation account."
+                    : "verify identity (demo KYC)."}
+                </div>
+              )}
             </>
           )}
 
@@ -611,9 +564,11 @@ export default function CreatePage() {
           >
             <PoolverMark size={11} /> Live summary
           </div>
-          <div className="summary-headline">${total.toLocaleString()}</div>
+          <div className="summary-headline">
+            ${lifetimePool.toLocaleString()}
+          </div>
           <div className="summary-sub">
-            per round · {cfg.memberCap} members
+            lifetime · 12 members × 12 months
           </div>
           <hr className="rule-dashed" style={{ margin: "16px 0" }} />
           <div className="summary-kv">
@@ -622,30 +577,24 @@ export default function CreatePage() {
               <b>${cfg.monthly.toLocaleString()}</b>
             </div>
             <div>
-              <span>Rounds</span>
+              <span>Tier</span>
+              <b>{cfg.tier === "vault" ? "Vault" : "DeFi"}</b>
+            </div>
+            <div>
+              <span>Month dur.</span>
               <b>{cfg.duration}</b>
             </div>
             <div>
-              <span>Collateral</span>
-              <b>{cfg.collateralPct}%</b>
+              <span>Protocol fee</span>
+              <b>1.5%</b>
             </div>
             <div>
-              <span>Insurance</span>
-              <b>{cfg.insurancePct}%</b>
+              <span>Reserve fee</span>
+              <b>{cfg.tier === "vault" ? "1.5%" : "2.5%"}</b>
             </div>
             <div>
-              <span>Tranche</span>
-              <b>{cfg.tranches}</b>
-            </div>
-            <div>
-              <span>Bidding</span>
-              <b>{cfg.biddingOn ? "ON" : "OFF"}</b>
-            </div>
-            <div>
-              <span>Access</span>
-              <b>
-                {cfg.access === "open" ? `Rep ≥ ${cfg.minRep}` : "Invite"}
-              </b>
+              <span>Bid cap</span>
+              <b>20%</b>
             </div>
           </div>
           <hr className="rule-dashed" style={{ margin: "16px 0" }} />
@@ -658,7 +607,7 @@ export default function CreatePage() {
               marginBottom: 6,
             }}
           >
-            PROTOCOL FEE
+            NET PER WINNER
           </div>
           <div
             style={{
@@ -667,7 +616,7 @@ export default function CreatePage() {
               color: "var(--acc)",
             }}
           >
-            ${protocolFee.toLocaleString()}
+            ${Math.round(netReceive).toLocaleString()}
           </div>
           <div
             style={{
@@ -677,7 +626,7 @@ export default function CreatePage() {
               marginTop: 4,
             }}
           >
-            1.5% · deducted at each draw
+            gross pool − fees · before bids
           </div>
         </aside>
       </div>
