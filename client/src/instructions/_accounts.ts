@@ -95,7 +95,12 @@ export function buildInitializeProtocolAccounts(
 export interface MockIssueKycAccounts {
   admin: PublicKey;
   protocolConfig: PublicKey;
-  userKyc: PublicKey;
+  /** The recipient's wallet pubkey. Rust handler types this as an
+   *  UncheckedAccount (it doesn't need to exist on chain yet, so
+   *  Anchor can't auto-resolve it). */
+  userPubkey: PublicKey;
+  /** PDA-derived KycAttestation. IDL field name is `attestation`. */
+  attestation: PublicKey;
   systemProgram: PublicKey;
 }
 
@@ -105,11 +110,12 @@ export function buildMockIssueKycAccounts(
   user: PublicKey
 ): MockIssueKycAccounts {
   const [protocolConfig] = findProtocolConfig();
-  const [userKyc] = findKycAttestation(user);
+  const [attestation] = findKycAttestation(user);
   return {
     admin,
     protocolConfig,
-    userKyc,
+    userPubkey: user,
+    attestation,
     systemProgram: SYSTEM_PROGRAM_ID,
   };
 }
