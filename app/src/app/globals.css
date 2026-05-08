@@ -854,10 +854,11 @@ body::after {
 @media (max-width: 1000px) { .timeline { grid-template-columns: 1fr; } }
 .months {
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  gap: 4px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
 }
-@media (max-width: 700px) { .months { grid-template-columns: repeat(5, 1fr); } }
+@media (max-width: 900px) { .months { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 560px) { .months { grid-template-columns: repeat(3, 1fr); } }
 .month {
   aspect-ratio: 1/1.15;
   border: 1px solid var(--line);

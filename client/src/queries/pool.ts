@@ -17,7 +17,14 @@ export interface PoolView {
   creator: PublicKey;
   tier: TierName;
   contributionAmount: BN;
+  /** Current filled count (derived from `participants` array — counts
+   *  non-null `Option<Pubkey>` entries). NOT the on-chain
+   *  `participant_count` u8 field, which is the fixed total slot cap
+   *  (always 12 in V1) — that's exposed as `maxParticipants` below. */
   participantCount: number;
+  /** Fixed total slot cap (always 12 in V1). Mirror of the on-chain
+   *  `participant_count` field. */
+  maxParticipants: number;
   totalMonths: number;
   currentMonth: number;
   startTimestamp: BN;
@@ -50,6 +57,14 @@ function decodeTier(idlVariant: { vault?: object; defi?: object }): TierName {
   throw new Error("unrecognized tier variant from on-chain Pool account");
 }
 
+/** `participants: [Option<Pubkey>; 12]` deserializes as an array where
+ *  None is null and Some(pubkey) is a PublicKey. Count the non-null
+ *  entries to get the filled count. */
+export function countFilledParticipants(participants: unknown): number {
+  if (!Array.isArray(participants)) return 0;
+  return participants.filter((p) => p !== null && p !== undefined).length;
+}
+
 /** Fetch a Pool by its address. */
 export async function fetchPool(
   client: PoolverClient,
@@ -67,7 +82,8 @@ export async function fetchPool(
     creator: raw.creator as PublicKey,
     tier: decodeTier(raw.tier),
     contributionAmount: raw.contributionAmount as BN,
-    participantCount: raw.participantCount as number,
+    participantCount: countFilledParticipants(raw.participants),
+    maxParticipants: raw.participantCount as number,
     totalMonths: raw.totalMonths as number,
     currentMonth: raw.currentMonth as number,
     startTimestamp: raw.startTimestamp as BN,

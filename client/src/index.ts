@@ -49,6 +49,7 @@ export {
   fetchPool,
   fetchPoolByCreatorAndId,
   computeMonthState,
+  countFilledParticipants,
 } from "./queries/pool";
 export type { PoolView, PoolMonthState } from "./queries/pool";
 export { fetchParticipant, hasPaidMonth } from "./queries/participant";

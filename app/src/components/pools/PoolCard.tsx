@@ -129,7 +129,7 @@ export function PoolCard({ pool, featured }: PoolCardProps) {
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {fmtUSD(lifetimeHuman * 12)}
+            {fmtUSD(lifetimeHuman)}
           </div>
         </div>
         <div style={{ textAlign: "right" }}>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import BN from "bn.js";
 import { PublicKey } from "@solana/web3.js";
-import type { PoolView, TierName } from "@poolver/client";
+import { countFilledParticipants, type PoolView, type TierName } from "@poolver/client";
 
 import { usePoolver } from "@/providers/PoolverProvider";
 
@@ -30,7 +30,8 @@ function decodePool(publicKey: PublicKey, raw: Record<string, unknown>): PoolVie
     creator: r.creator as PublicKey,
     tier: decodeTier(r.tier),
     contributionAmount: r.contributionAmount as BN,
-    participantCount: r.participantCount as number,
+    participantCount: countFilledParticipants(r.participants),
+    maxParticipants: r.participantCount as number,
     totalMonths: r.totalMonths as number,
     currentMonth: r.currentMonth as number,
     startTimestamp: r.startTimestamp as BN,
