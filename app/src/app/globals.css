@@ -245,8 +245,19 @@ body::after {
   font-variant-numeric: tabular-nums;
   display: inline-flex; gap: 3px;
 }
+.rep-badge-dot {
+  display: inline-block;
+  width: 9px; height: 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.rep-badge-tier {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
 @media (max-width: 720px) { .rep-badge .rep-badge-label { display: none; } }
-@media (max-width: 560px) { .rep-badge { display: none; } }
+@media (max-width: 560px) { .rep-badge .rep-badge-tier { display: none; } }
 
 .usdc-balance {
   display: inline-flex; align-items: center; gap: 6px;

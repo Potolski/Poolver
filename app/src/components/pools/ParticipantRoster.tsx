@@ -6,6 +6,7 @@ import { PublicKey } from "@solana/web3.js";
 import {
   fetchUserReputation,
   microUsdcToHuman,
+  repTier,
   type PoolView,
   type UserReputationView,
 } from "@poolver/client";
@@ -156,7 +157,7 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
               <th></th>
               <th>Wallet</th>
               <th
-                title="Reputation. Format: J·C·D — pools joined / completed / defaulted (lifetime)."
+                title="Reputation tier. Gray = new · Green = trusted · Yellow = mixed · Red = risky"
               >
                 Rep
               </th>
@@ -213,9 +214,10 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
               const collateralHuman = Number(microUsdcToHuman(r.collateralLocked));
               const collateralInitialHuman = Number(microUsdcToHuman(r.collateralInitial));
               const rep = reps.get(r.user.toBase58()) ?? null;
-              const repCompleted = rep?.poolsCompleted ?? 0;
-              const repDefaulted = rep?.poolsDefaulted ?? 0;
-              const repJoined = rep?.poolsJoined ?? 0;
+              const repInfo = repTier(rep);
+              const repTooltip = rep
+                ? `${repInfo.label} · ${repInfo.description}\nJoined ${rep.poolsJoined ?? 0} · Completed ${rep.poolsCompleted ?? 0} · Defaulted ${rep.poolsDefaulted ?? 0}`
+                : "Reputation account not initialized";
               const status = r.isDefaulted
                 ? { label: "Default", cls: "default" }
                 : r.isSuspended
@@ -238,39 +240,36 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
                       </div>
                     </div>
                   </td>
-                  <td
-                    title={
-                      rep
-                        ? `Joined ${repJoined} pool${repJoined === 1 ? "" : "s"} · ${repCompleted} completed · ${repDefaulted} defaulted`
-                        : "Reputation account not initialized"
-                    }
-                    style={{
-                      fontFamily: "var(--mono)",
-                      fontSize: 11.5,
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {rep ? (
-                      <span style={{ display: "inline-flex", gap: 4 }}>
-                        <span style={{ color: "var(--fg)" }}>{repJoined}</span>
-                        <span style={{ color: "var(--fg-4)" }}>·</span>
-                        <span style={{ color: "var(--ok, var(--acc))" }}>
-                          {repCompleted}
-                        </span>
-                        <span style={{ color: "var(--fg-4)" }}>·</span>
-                        <span
-                          style={{
-                            color:
-                              repDefaulted > 0 ? "var(--err)" : "var(--fg-4)",
-                            fontWeight: repDefaulted > 0 ? 600 : 400,
-                          }}
-                        >
-                          {repDefaulted}
-                        </span>
+                  <td title={repTooltip}>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 7,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 999,
+                          background: repInfo.color,
+                          boxShadow: `0 0 6px ${repInfo.color}`,
+                          flexShrink: 0,
+                        }}
+                        aria-label={repInfo.label}
+                      />
+                      <span
+                        style={{
+                          fontFamily: "var(--mono)",
+                          fontSize: 11,
+                          letterSpacing: "0.04em",
+                          color: repInfo.color,
+                        }}
+                      >
+                        {repInfo.label}
                       </span>
-                    ) : (
-                      <span style={{ color: "var(--fg-4)" }}>—</span>
-                    )}
+                    </span>
                   </td>
                   <td
                     className="num"

@@ -15,6 +15,7 @@ export {
   BID_NONCE_LEN,
 } from "./utils/bid_hash";
 export { humanUsdcToMicro, microUsdcToHuman } from "./utils/constants";
+export { repTier, type RepTier, type RepTierInfo } from "./utils/reputation_tier";
 
 // Instruction builders (high-level — return TransactionInstruction)
 export { initializeProtocolIx } from "./instructions/initialize_protocol";
