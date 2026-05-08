@@ -1987,10 +1987,12 @@ export type PoolverCore = {
         {
           "name": "collateralVault",
           "docs": [
-            "Collateral vault — present so future steps that mutate",
-            "collateral can rely on it being supplied; not touched in step 4.",
+            "Collateral vault — receives the join collateral (1× contribution",
+            "per spec §4 demo extension). Mutable since join now transfers",
+            "USDC into it.",
             "enforce identity."
           ],
+          "writable": true,
           "pda": {
             "seeds": [
               {
