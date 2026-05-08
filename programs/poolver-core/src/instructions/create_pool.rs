@@ -176,6 +176,16 @@ pub fn handle_create_pool<'info>(
     let month_duration = month_duration_seconds.unwrap_or(DEFAULT_MONTH_DURATION_SECS);
     require!(month_duration > 0, CoreError::InvalidAmount);
 
+    // Scale the per-pool bid window to half the month duration, capped
+    // at the production default (48h). Production-default 30-day months
+    // get the full 48h; demo pools with 10-minute months get a 5-minute
+    // bid window so the auction can actually complete inside the month.
+    // Floor: 60 seconds (so even a 60s month leaves a 30s window — though
+    // that would be an unusable demo cadence in practice).
+    let scaled_bid_window = (month_duration / 2)
+        .max(60)
+        .min(DEFAULT_BID_WINDOW_SECS);
+
     // ───── Pool initial state ──────────────────────────────────────────
     {
         let pool = &mut ctx.accounts.pool;
@@ -188,10 +198,10 @@ pub fn handle_create_pool<'info>(
         pool.current_month = 0;
         pool.start_timestamp = 0;
         pool.month_duration_seconds = month_duration;
-        pool.bid_window_seconds = DEFAULT_BID_WINDOW_SECS;
+        pool.bid_window_seconds = scaled_bid_window;
         pool.current_month_started_at = 0;
         pool.bid_window_ends_at = 0;
-        pool.reveal_window_ends_at = DEFAULT_REVEAL_WINDOW_SECS; // default for later
+        pool.reveal_window_ends_at = 0;
         pool.total_contributed = 0;
         pool.total_distributed = 0;
         pool.total_collateral_locked = 0;

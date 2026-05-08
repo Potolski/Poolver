@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::constants::{DEFAULT_REVEAL_WINDOW_SECS, PROTOCOL_CONFIG_SEED};
+use crate::constants::PROTOCOL_CONFIG_SEED;
 use crate::error::CoreError;
 use crate::events::{MonthAdvanced, PoolCompleted};
 use crate::state::{Pool, ProtocolConfig};
@@ -84,12 +84,15 @@ pub fn handle_advance_month(ctx: Context<AdvanceMonth>) -> Result<()> {
         pool.bid_window_ends_at = now
             .checked_add(pool.bid_window_seconds)
             .ok_or(CoreError::MathOverflow)?;
-        // SPEC_QUESTION-4: 24h reveal window default. Step 6 wires this
-        // semantically (commit-reveal); step 5 just refreshes the field
-        // so step 6 can rely on it being current.
+        // SPEC_QUESTION-4: derive reveal window from the per-pool bid
+        // window (half of bid, min 60s). For production-default 48h bid
+        // this gives a 24h reveal — same as the original hardcoded
+        // constant. For demo pools with short months this scales down
+        // proportionally (a 5-min bid yields a 2.5-min reveal).
+        let reveal_secs = (pool.bid_window_seconds / 2).max(60);
         pool.reveal_window_ends_at = pool
             .bid_window_ends_at
-            .checked_add(DEFAULT_REVEAL_WINDOW_SECS)
+            .checked_add(reveal_secs)
             .ok_or(CoreError::MathOverflow)?;
 
         // SPEC_QUESTION-1 (step 8): roll the bid-credit denominator over
