@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  fetchKycAttestation,
   fetchUserReputation,
   initializeUserReputationIx,
+  isKycValid,
   type UserReputationView,
 } from "@poolver/client";
 
@@ -39,13 +41,20 @@ export function useOnboarding(): UseOnboardingResult {
     }
     setState("loading");
     try {
+      // Reputation gate first — must be initialized before any other action.
       const rep = await fetchUserReputation(client, publicKey);
       setReputation(rep);
       if (!rep) {
         setState("needs_reputation");
         return;
       }
-      if (rep.kycStatus === "none") {
+      // KYC gate: read the KycAttestation PDA directly (not the cached
+      // `UserReputation.kycStatus` field, which V1's `mock_issue_kyc`
+      // doesn't write — it's a planned cache the protocol doesn't sync
+      // yet). On-chain handlers all verify the attestation directly,
+      // so the UI mirrors that.
+      const kyc = await fetchKycAttestation(client, publicKey);
+      if (!isKycValid(kyc, "full")) {
         setState("needs_kyc");
         return;
       }

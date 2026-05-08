@@ -57,3 +57,5 @@ export { fetchReserveFund } from "./queries/reserve";
 export type { ReserveFundView } from "./queries/reserve";
 export { fetchUserReputation } from "./queries/reputation";
 export type { UserReputationView } from "./queries/reputation";
+export { fetchKycAttestation, isKycValid } from "./queries/kyc";
+export type { KycAttestationView } from "./queries/kyc";
