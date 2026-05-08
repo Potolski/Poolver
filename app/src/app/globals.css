@@ -1333,7 +1333,7 @@ body::after {
 }
 .footer-grid {
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  grid-template-columns: 1.8fr 1fr 1fr;
   gap: 32px;
   padding-bottom: 28px;
   border-bottom: 1px solid var(--line);

@@ -487,34 +487,173 @@ export default function DocsPage() {
 
           <DocSection id="08" n="08" title="Wallet reputation">
             <p>
-              Wallet reputation is a <b>score from 0 to 1000</b> attached to a
-              Solana pubkey, computed entirely from on-chain history. It is{" "}
-              <b>non-transferable</b> (soulbound) and queryable via{" "}
-              <Code>get_reputation(pubkey)</Code>.
+              Every Solana wallet that has ever interacted with Poolver has an
+              on-chain <Code>UserReputation</Code> account — a non-transferable
+              record of how that wallet has behaved across every pool. It&apos;s
+              read directly from the chain (no oracle, no off-chain database)
+              and surfaced everywhere a wallet is shown: the topbar of the user
+              themselves, and the &quot;Rep&quot; column of every pool roster
+              so you can see who you&apos;re joining a pool with.
+            </p>
+
+            <h4>What gets tracked</h4>
+            <div className="docs-table-wrap">
+              <table className="docs-table">
+                <thead>
+                  <tr>
+                    <th>Field</th>
+                    <th>What it counts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><Code>pools_joined</Code></td>
+                    <td>Total pools the wallet has ever joined</td>
+                  </tr>
+                  <tr>
+                    <td><Code>pools_completed</Code></td>
+                    <td>Pools that ran the full 12 months without this wallet defaulting</td>
+                  </tr>
+                  <tr>
+                    <td><Code>pools_defaulted</Code></td>
+                    <td>Pools where this wallet was liquidated for non-payment</td>
+                  </tr>
+                  <tr>
+                    <td><Code>total_contributed_lifetime</Code></td>
+                    <td>Lifetime USDC paid in across all pools</td>
+                  </tr>
+                  <tr>
+                    <td><Code>total_received_lifetime</Code></td>
+                    <td>Lifetime USDC received from winning</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h4>The four-color tier system</h4>
+            <p>
+              The full numeric history is reduced to a single color so a glance
+              at a roster row tells you whether the counterparty is safe. Rules:
             </p>
             <div className="docs-table-wrap">
               <table className="docs-table">
                 <thead>
                   <tr>
-                    <th>Signal</th>
-                    <th>Weight</th>
-                    <th>Source</th>
+                    <th>Color</th>
+                    <th>Label</th>
+                    <th>Condition</th>
+                    <th>Meaning</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr><td>Poolvers completed</td><td className="num">35%</td><td>program events</td></tr>
-                  <tr><td>On-time payment rate</td><td className="num">30%</td><td>program events</td></tr>
-                  <tr><td>Lifetime volume</td><td className="num">15%</td><td>program events</td></tr>
-                  <tr><td>Tenure (first-seen)</td><td className="num">10%</td><td>earliest pool-activity</td></tr>
-                  <tr><td>Peer vouch stakes</td><td className="num">10%</td><td>explicit stake from other wallets</td></tr>
+                  <tr>
+                    <td>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 12,
+                          height: 12,
+                          borderRadius: 999,
+                          background: "var(--fg-4)",
+                          marginRight: 6,
+                          verticalAlign: "middle",
+                        }}
+                      />
+                      Gray
+                    </td>
+                    <td><b>New / Neutral</b></td>
+                    <td>0 completed and 0 defaulted</td>
+                    <td>Brand-new wallet — no track record either way. Default starting state for every Poolver user.</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 12,
+                          height: 12,
+                          borderRadius: 999,
+                          background: "var(--ok)",
+                          marginRight: 6,
+                          verticalAlign: "middle",
+                        }}
+                      />
+                      Green
+                    </td>
+                    <td><b>Trusted</b></td>
+                    <td>≥1 completed AND 0 defaulted</td>
+                    <td>Has finished at least one full pool without ever defaulting. Lower risk to pool with.</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 12,
+                          height: 12,
+                          borderRadius: 999,
+                          background: "var(--warn)",
+                          marginRight: 6,
+                          verticalAlign: "middle",
+                        }}
+                      />
+                      Yellow
+                    </td>
+                    <td><b>Mixed</b></td>
+                    <td>≥1 completed AND ≥1 defaulted</td>
+                    <td>Has both successes and failures on record. Default may have been a one-off; weigh the ratio in the tooltip.</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 12,
+                          height: 12,
+                          borderRadius: 999,
+                          background: "var(--err)",
+                          marginRight: 6,
+                          verticalAlign: "middle",
+                        }}
+                      />
+                      Red
+                    </td>
+                    <td><b>Risky</b></td>
+                    <td>≥1 defaulted AND 0 completed</td>
+                    <td>Has only ever defaulted — no successful pool to balance it. Treat as a hard stop unless you know them off-chain.</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
+
+            <Callout title="Hover for raw counts">
+              The colored dot is the one-glance signal. Hover over any
+              reputation badge — in the topbar, in the roster, anywhere — to
+              see the full <Code>joined · completed · defaulted</Code>{" "}
+              breakdown plus lifetime USDC volumes. The bucketing is shared
+              code (<Code>repTier()</Code> in <Code>@poolver/client</Code>)
+              so V2 indexers and mobile clients see the exact same colors.
+            </Callout>
+
+            <h4>How tiers change</h4>
+            <ul className="docs-ul">
+              <li>
+                <b>Joining a pool</b> increments <Code>pools_joined</Code> only — your color does not change.
+              </li>
+              <li>
+                <b>Completing a pool</b> (12 months elapsed without defaulting) increments <Code>pools_completed</Code>. Gray → Green if no prior defaults; Red → Yellow if there were any.
+              </li>
+              <li>
+                <b>Defaulting</b> (liquidated by <Code>liquidate_default</Code> on day 30 of unpaid status) increments <Code>pools_defaulted</Code>. Gray → Red, Green → Yellow.
+              </li>
+            </ul>
+
             <p>
-              Tiers: <b style={{ color: "var(--acc)" }}>S</b> (≥850) · <b>A</b>{" "}
-              (700) · <b>B</b> (500) · <b>C</b> (300) ·{" "}
-              <b style={{ color: "var(--err)" }}>D</b> (&lt;300). Some premium
-              pools gate on minimum rep.
+              Reputation is <b>permanent and on-chain</b>. There is no admin
+              instruction to reset it — the only way out of Yellow or Red is
+              to complete more pools cleanly. New wallets start at Gray; bad
+              behavior cannot be hidden by switching wallets and rejoining,
+              because every new wallet starts from zero.
             </p>
           </DocSection>
 
