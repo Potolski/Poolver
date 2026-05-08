@@ -1190,6 +1190,58 @@ body::after {
 .rep-dot { width: 5px; height: 10px; background: var(--line-2); border-radius: 1px; }
 .rep-dot.on { background: var(--acc); box-shadow: 0 0 4px var(--acc); }
 
+/* Onboarding gate — appears between routes and footer when wallet
+   connects but reputation/KYC isn't initialized yet. Inherits the
+   `.shell` horizontal padding via its inner card max-width + auto
+   margin so it lines up with the surrounding sections. */
+.onboarding-gate {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 32px 40px 48px;
+  position: relative;
+  z-index: 3;
+}
+@media (max-width: 1100px) { .onboarding-gate { padding: 32px 32px 48px; } }
+@media (max-width: 700px)  { .onboarding-gate { padding: 24px 20px 36px; } }
+
+.onboarding-gate-card {
+  position: relative;
+  padding: 28px 32px 24px;
+  border: 1px solid var(--line-2);
+  background:
+    radial-gradient(ellipse at top right, var(--acc-tint) 0%, transparent 55%),
+    var(--bg-1);
+  border-radius: 3px;
+  max-width: 720px;
+  box-shadow: 0 20px 60px -24px oklch(0 0 0 / 0.6),
+    inset 0 1px 0 oklch(1 0 0 / 0.03);
+}
+@media (max-width: 700px) { .onboarding-gate-card { padding: 22px 22px 20px; } }
+
+.onboarding-gate-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--fg-3);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.onboarding-gate-close:hover { color: var(--fg); border-color: var(--line-2); background: var(--bg-2); }
+
+.onboarding-gate-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-right: 40px; /* leave room for the close button */
+}
+
 /* Footer */
 .footer {
   border-top: 1px solid var(--line);

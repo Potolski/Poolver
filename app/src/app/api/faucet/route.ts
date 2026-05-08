@@ -52,11 +52,14 @@ export async function POST(req: Request) {
     );
   }
 
+  // Demo-friendly rate limits: 30 req/min per IP, 6 req/min per recipient.
+  // Tight production limits live in scripts/faucet.ts comments and should
+  // come back when this exits demo mode.
   const ip = getClientIp(req);
-  if (!rateLimit("ip", ip, 3, 60_000)) {
+  if (!rateLimit("ip", ip, 30, 60_000)) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
-  if (!rateLimit("recipient", recipient.toBase58(), 1, 5 * 60_000)) {
+  if (!rateLimit("recipient", recipient.toBase58(), 6, 60_000)) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 

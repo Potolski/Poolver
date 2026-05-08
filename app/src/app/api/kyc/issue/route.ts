@@ -40,11 +40,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_level" }, { status: 400 });
   }
 
+  // Demo-friendly rate limits: 30 req/min per IP, 6 req/min per recipient.
+  // Tighten before exposing to public traffic.
   const ip = getClientIp(req);
-  if (!rateLimit("ip", ip, 5, 60_000)) {
+  if (!rateLimit("ip", ip, 30, 60_000)) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
-  if (!rateLimit("recipient", user.toBase58(), 1, 60_000)) {
+  if (!rateLimit("recipient", user.toBase58(), 6, 60_000)) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
