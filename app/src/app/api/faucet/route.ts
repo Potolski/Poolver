@@ -24,8 +24,8 @@ interface FaucetBody {
   amount?: number;
 }
 
-const HARD_CAP = 10_000;
-const DEFAULT_AMOUNT = 5_000;
+const HARD_CAP = 100_000;
+const DEFAULT_AMOUNT = 100_000;
 const MICRO_PER_USDC = BigInt(1_000_000);
 
 export async function POST(req: Request) {

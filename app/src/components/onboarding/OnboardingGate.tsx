@@ -68,7 +68,7 @@ export function OnboardingGate() {
     setBusy("faucet");
     const toastId = toast.loading("Minting test USDC…");
     try {
-      const { signature, amount } = await faucet(5000);
+      const { signature, amount } = await faucet(100_000);
       toast.success(`+${amount.toLocaleString()} USDC`, {
         id: toastId,
         description: `sig: ${signature.slice(0, 12)}…`,
@@ -159,7 +159,7 @@ export function OnboardingGate() {
                 onClick={handleFaucet}
                 disabled={busy !== null}
               >
-                {busy === "faucet" ? "Minting…" : "💧 Get 5,000 test USDC"}
+                {busy === "faucet" ? "Minting…" : "💧 Get 100,000 test USDC"}
               </button>
             </>
           )}
