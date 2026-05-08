@@ -548,7 +548,7 @@ fn t12_join_pool_happy_fee_split() {
     let contribution = 1_000 * ONE_USDC;
     let pool = create_pool_for(&mut env, &creator, 7, Tier::Vault, contribution).unwrap();
 
-    let (user, ata) = fully_set_up_user(&mut env, 5_000 * ONE_USDC);
+    let (user, ata) = fully_set_up_user(&mut env, 50_000 * ONE_USDC);
     join_pool_for(&mut env, &user, ata, pool, Tier::Vault).expect("join_pool");
 
     // Fee math (Vault tier: 150 bps protocol + 150 bps reserve).
@@ -600,7 +600,7 @@ fn t13_join_pool_rejects_no_kyc() {
     let user = Keypair::new();
     env.svm.airdrop(&user.pubkey(), 100 * SOL).unwrap();
     init_reputation(&mut env, &user);
-    let ata = env.fund_token_account(&user.pubkey(), 5_000 * ONE_USDC);
+    let ata = env.fund_token_account(&user.pubkey(), 50_000 * ONE_USDC);
 
     let res = join_pool_for(&mut env, &user, ata, pool, Tier::Vault);
     assert!(res.is_err(), "user without KYC must be rejected");
@@ -612,7 +612,7 @@ fn t14_join_pool_rejects_expired_kyc() {
     let creator = bootstrap_with_creator(&mut env);
     let pool = create_pool_for(&mut env, &creator, 10, Tier::Vault, 1_000 * ONE_USDC).unwrap();
 
-    let (user, ata) = fully_set_up_user(&mut env, 5_000 * ONE_USDC);
+    let (user, ata) = fully_set_up_user(&mut env, 50_000 * ONE_USDC);
 
     // Force KYC expiry by hacking the on-chain account.
     let (att_pda, _) = env.kyc_pda(&user.pubkey());
@@ -635,7 +635,7 @@ fn t15_join_pool_rejects_sanctions_hit() {
     let creator = bootstrap_with_creator(&mut env);
     let pool = create_pool_for(&mut env, &creator, 11, Tier::Vault, 1_000 * ONE_USDC).unwrap();
 
-    let (user, ata) = fully_set_up_user(&mut env, 5_000 * ONE_USDC);
+    let (user, ata) = fully_set_up_user(&mut env, 50_000 * ONE_USDC);
 
     // Flip sanctions_clean = false on-chain.
     let (att_pda, _) = env.kyc_pda(&user.pubkey());
@@ -658,7 +658,7 @@ fn t16_join_pool_rejects_double_join() {
     let creator = bootstrap_with_creator(&mut env);
     let pool = create_pool_for(&mut env, &creator, 12, Tier::Vault, 1_000 * ONE_USDC).unwrap();
 
-    let (user, ata) = fully_set_up_user(&mut env, 5_000 * ONE_USDC);
+    let (user, ata) = fully_set_up_user(&mut env, 50_000 * ONE_USDC);
     join_pool_for(&mut env, &user, ata, pool, Tier::Vault).expect("first join");
 
     let res = join_pool_for(&mut env, &user, ata, pool, Tier::Vault);
@@ -674,7 +674,7 @@ fn t18_pool_auto_starts_on_12th_join() {
 
     // 12 fresh users join.
     for _ in 0..12 {
-        let (user, ata) = fully_set_up_user(&mut env, 5_000 * ONE_USDC);
+        let (user, ata) = fully_set_up_user(&mut env, 50_000 * ONE_USDC);
         join_pool_for(&mut env, &user, ata, pool, Tier::Vault).expect("join");
     }
 
@@ -686,7 +686,7 @@ fn t18_pool_auto_starts_on_12th_join() {
     assert!(p.participants.iter().all(|s| s.is_some()), "pool full");
 
     // 13th join is rejected (PoolFull / PoolAlreadyStarted).
-    let (user13, ata13) = fully_set_up_user(&mut env, 5_000 * ONE_USDC);
+    let (user13, ata13) = fully_set_up_user(&mut env, 50_000 * ONE_USDC);
     let res = join_pool_for(&mut env, &user13, ata13, pool, Tier::Vault);
     assert!(res.is_err(), "13th join must be rejected");
 }
@@ -701,7 +701,7 @@ fn t19_e2e_fee_accounting_solvency() {
     let pool = create_pool_for(&mut env, &creator, 15, Tier::Vault, contribution).unwrap();
 
     for _ in 0..12 {
-        let (user, ata) = fully_set_up_user(&mut env, 5_000 * ONE_USDC);
+        let (user, ata) = fully_set_up_user(&mut env, 50_000 * ONE_USDC);
         join_pool_for(&mut env, &user, ata, pool, Tier::Vault).expect("join");
     }
 

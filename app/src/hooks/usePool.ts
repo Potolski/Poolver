@@ -70,6 +70,13 @@ export function usePool(address: string | undefined): UsePoolResult {
 
   useEffect(() => {
     void load();
+    // Poll on-chain state every 8s so the UI reflects monthly
+    // contributions, joins, advances, and winner selections without
+    // requiring the user to refresh manually.
+    const id = setInterval(() => {
+      void load();
+    }, 8_000);
+    return () => clearInterval(id);
   }, [load]);
 
   return { pool, participant, monthState, loading, error, refetch: load };

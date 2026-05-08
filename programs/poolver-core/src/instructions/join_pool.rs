@@ -364,14 +364,20 @@ pub fn handle_join_pool<'info>(
     let pool_usdc_vault_bump = ctx.bumps.pool_usdc_vault;
     let core_invoker_bump = ctx.bumps.core_invoker;
 
-    // Join collateral — every participant escrows 1× contribution_amount
-    // when they join. Held in collateral_vault for the entire pool
-    // duration; refunded via `refund_collateral` once pool.is_complete
-    // and the participant has not defaulted. If the participant later
-    // wins, claim_winning posts additional collateral on top per spec
-    // §4 (the join collateral isn't credited against the win-collateral
-    // requirement — it stays as separate stake).
-    let join_collateral = contribution;
+    // Join collateral — every participant escrows the FULL pool amount
+    // (total_months × contribution) when they join. So a 12-month, $1k/mo
+    // pool requires $12k collateral up-front, on top of the first
+    // month's contribution. This is what the user reported they expect
+    // ("the first user should have paid the whole amount in collateral")
+    // and matches the trust model of traditional consórcios — collateral
+    // covers the entire lifetime obligation, making post-win default
+    // economically irrational.
+    //
+    // Held in collateral_vault for the pool duration; refunded via
+    // `refund_collateral` once pool.is_complete && !is_defaulted.
+    let join_collateral = (Pool::TOTAL_MONTHS as u64)
+        .checked_mul(contribution)
+        .ok_or(CoreError::MathOverflow)?;
 
     // ───── 4a. user → pool_usdc_vault (contribution) ──────────────────
     cpi_user_to_pool_vault(

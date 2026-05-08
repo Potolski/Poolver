@@ -779,7 +779,7 @@ fn t400_tier1_happy_path_with_yield() {
     // is the only USDC the adapter holds (no joins yet), so harvest()
     // reports yield_amount = 1000 cleanly.
     let (injector, injector_ata) =
-        fully_set_up_user(&mut env, 5_000 * ONE_USDC, KycLevel::Light);
+        fully_set_up_user(&mut env, 50_000 * ONE_USDC, KycLevel::Light);
     let yield_amount = 1_000 * ONE_USDC;
     mock_inject_yield(&mut env, &injector, injector_ata, pool, yield_amount)
         .expect("mock_inject_yield");
@@ -1005,7 +1005,7 @@ fn t404_tier1_yield_solvency_inv1() {
 
     // Inject yield.
     let (injector, injector_ata) =
-        fully_set_up_user(&mut env, 5_000 * ONE_USDC, KycLevel::Light);
+        fully_set_up_user(&mut env, 50_000 * ONE_USDC, KycLevel::Light);
     let yield_amount = 1_000 * ONE_USDC;
 
     // Snapshot ALL custody endpoints + the injector's ATA.

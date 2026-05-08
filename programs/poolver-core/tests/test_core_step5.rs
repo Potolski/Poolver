@@ -583,7 +583,7 @@ fn t31_contribute_rejects_non_participant() {
     // Outsider with no participant PDA. Anchor seed derivation (the
     // `participant` constraint) must reject — there's nothing
     // initialized at `[participant, pool, outsider]`.
-    let (outsider, ata) = fully_set_up_user(&mut env, 5_000 * ONE_USDC);
+    let (outsider, ata) = fully_set_up_user(&mut env, 50_000 * ONE_USDC);
     let res = contribute_for(&mut env, &outsider, ata, pool, Tier::Vault);
     assert!(res.is_err(), "non-participant must be rejected");
 }

@@ -878,11 +878,11 @@ fn t100_claim_winning_happy_path() {
     assert!(p.winners[0].claimed, "MonthWinner.claimed flipped");
     assert_eq!(p.bid_credit_balance, participant_share, "75% credited");
     assert_eq!(p.total_distributed, net_payout);
-    // Total collateral = 12 join collaterals (1× contribution each) +
-    // the winner's post-win collateral.
+    // Total collateral = 12 join collaterals (each = 12 × contribution
+    // for the full pool amount) + the winner's post-win collateral.
     assert_eq!(
         p.total_collateral_locked,
-        total_collateral + 12 * contribution
+        total_collateral + 12 * 12 * contribution
     );
 
     // Participant state.

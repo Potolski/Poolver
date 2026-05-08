@@ -20,19 +20,29 @@ export function ReserveStats({ tier }: { tier: TierName }) {
 
   useEffect(() => {
     let cancelled = false;
+    const tick = () => {
+      fetchReserveFund(client, tier)
+        .then((r) => {
+          if (!cancelled) {
+            setReserve(r);
+            setLoading(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setReserve(null);
+            setLoading(false);
+          }
+        });
+    };
     setLoading(true);
-    fetchReserveFund(client, tier)
-      .then((r) => {
-        if (!cancelled) setReserve(r);
-      })
-      .catch(() => {
-        if (!cancelled) setReserve(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    tick();
+    // Poll every 10s so reserve flows from successive joins / contributions
+    // / yield distributions / default drawdowns appear live.
+    const id = setInterval(tick, 10_000);
     return () => {
       cancelled = true;
+      clearInterval(id);
     };
   }, [client, tier]);
 

@@ -1094,7 +1094,7 @@ fn t310_liquidate_case_a_shortfall_covered_by_reserve() {
     // shortfall = 4_000. Reserve has 5_000 USDC available → covers fully.
     let collateral = 6_000 * ONE_USDC;
     force_post_win_state(&mut env, pool, target, 2, 100 * ONE_USDC, collateral);
-    seed_reserve_balance(&mut env, Tier::Vault, 5_000 * ONE_USDC);
+    seed_reserve_balance(&mut env, Tier::Vault, 50_000 * ONE_USDC);
 
     let p = env.fetch_pool(&pool);
     set_clock_to(
@@ -1454,7 +1454,7 @@ fn t319_solvency_post_liquidation() {
     let target = users[0].0.pubkey();
     let collateral = 6_000 * ONE_USDC;
     force_post_win_state(&mut env, pool, target, 2, 100 * ONE_USDC, collateral);
-    seed_reserve_balance(&mut env, Tier::Vault, 5_000 * ONE_USDC);
+    seed_reserve_balance(&mut env, Tier::Vault, 50_000 * ONE_USDC);
 
     let p = env.fetch_pool(&pool);
     set_clock_to(

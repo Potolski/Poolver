@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import BN from "bn.js";
 import { PublicKey } from "@solana/web3.js";
-import { microUsdcToHuman, type PoolView } from "@poolver/client";
+import {
+  fetchUserReputation,
+  microUsdcToHuman,
+  type PoolView,
+  type UserReputationView,
+} from "@poolver/client";
 
 import { SectionHead } from "@/components/layout/SectionHead";
 import { usePoolver } from "@/providers/PoolverProvider";
@@ -76,6 +81,9 @@ function PaidMonthsBar({ bitmap, totalMonths }: { bitmap: number; totalMonths: n
 export function ParticipantRoster({ pool }: { pool: PoolView }) {
   const { client, publicKey } = usePoolver();
   const [rows, setRows] = useState<RosterRow[] | null>(null);
+  const [reps, setReps] = useState<Map<string, UserReputationView | null>>(
+    new Map()
+  );
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -84,30 +92,47 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
       client.core.account as unknown as { participant: ParticipantAccountClient }
     ).participant;
 
-    accountClient
-      .all([
-        {
-          memcmp: {
-            offset: 8,
-            bytes: pool.publicKey.toBase58(),
+    const tick = async () => {
+      try {
+        const accounts = await accountClient.all([
+          {
+            memcmp: {
+              offset: 8,
+              bytes: pool.publicKey.toBase58(),
+            },
           },
-        },
-      ])
-      .then((accounts) => {
+        ]);
         if (cancelled) return;
         const decoded = accounts.map(({ publicKey: pda, account }) =>
           decodeRow(pda, account)
         );
         setRows(decoded);
-      })
-      .catch((e) => {
+
+        // Fetch each participant's reputation in parallel — one PDA each.
+        const pairs = await Promise.all(
+          decoded.map(async (r) => {
+            try {
+              const rep = await fetchUserReputation(client, r.user);
+              return [r.user.toBase58(), rep] as const;
+            } catch {
+              return [r.user.toBase58(), null] as const;
+            }
+          })
+        );
+        if (cancelled) return;
+        setReps(new Map(pairs));
+      } catch (e) {
         if (cancelled) return;
         setError(e instanceof Error ? e : new Error(String(e)));
         setRows([]);
-      });
+      }
+    };
 
+    void tick();
+    const id = setInterval(tick, 10_000);
     return () => {
       cancelled = true;
+      clearInterval(id);
     };
   }, [client, pool.publicKey]);
 
@@ -130,8 +155,13 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
             <tr>
               <th></th>
               <th>Wallet</th>
-              <th className="num" title="Collateral is posted by a member only after they WIN a month — to secure the remaining contributions they owe. Non-winners show $0 by design.">
-                Collateral (winner)
+              <th
+                title="Reputation. Format: J·C·D — pools joined / completed / defaulted (lifetime)."
+              >
+                Rep
+              </th>
+              <th className="num" title="Collateral locked. Everyone posts 12× contribution at join (fully refundable on completion). Winners post additional collateral when they claim.">
+                Collateral
               </th>
               <th>Paid months</th>
               <th>Status</th>
@@ -141,7 +171,7 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
           <tbody>
             {error && (
               <tr>
-                <td colSpan={6} style={{ padding: 14, color: "var(--err)" }}>
+                <td colSpan={7} style={{ padding: 14, color: "var(--err)" }}>
                   {error.message}
                 </td>
               </tr>
@@ -149,7 +179,7 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
             {!rows && !error && (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{
                     padding: 14,
                     textAlign: "center",
@@ -165,7 +195,7 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
             {rows?.length === 0 && (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{
                     padding: 14,
                     textAlign: "center",
@@ -182,6 +212,10 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
               const me = publicKey?.toBase58() === r.user.toBase58();
               const collateralHuman = Number(microUsdcToHuman(r.collateralLocked));
               const collateralInitialHuman = Number(microUsdcToHuman(r.collateralInitial));
+              const rep = reps.get(r.user.toBase58()) ?? null;
+              const repCompleted = rep?.poolsCompleted ?? 0;
+              const repDefaulted = rep?.poolsDefaulted ?? 0;
+              const repJoined = rep?.poolsJoined ?? 0;
               const status = r.isDefaulted
                 ? { label: "Default", cls: "default" }
                 : r.isSuspended
@@ -205,14 +239,44 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
                     </div>
                   </td>
                   <td
-                    className="num"
                     title={
-                      r.hasWon
-                        ? `Initial: $${collateralInitialHuman.toLocaleString()} · Locked now: $${collateralHuman.toLocaleString()}`
-                        : "Posted only after winning"
+                      rep
+                        ? `Joined ${repJoined} pool${repJoined === 1 ? "" : "s"} · ${repCompleted} completed · ${repDefaulted} defaulted`
+                        : "Reputation account not initialized"
                     }
+                    style={{
+                      fontFamily: "var(--mono)",
+                      fontSize: 11.5,
+                      fontVariantNumeric: "tabular-nums",
+                    }}
                   >
-                    {r.hasWon ? `$${collateralHuman.toLocaleString()}` : "—"}
+                    {rep ? (
+                      <span style={{ display: "inline-flex", gap: 4 }}>
+                        <span style={{ color: "var(--fg)" }}>{repJoined}</span>
+                        <span style={{ color: "var(--fg-4)" }}>·</span>
+                        <span style={{ color: "var(--ok, var(--acc))" }}>
+                          {repCompleted}
+                        </span>
+                        <span style={{ color: "var(--fg-4)" }}>·</span>
+                        <span
+                          style={{
+                            color:
+                              repDefaulted > 0 ? "var(--err)" : "var(--fg-4)",
+                            fontWeight: repDefaulted > 0 ? 600 : 400,
+                          }}
+                        >
+                          {repDefaulted}
+                        </span>
+                      </span>
+                    ) : (
+                      <span style={{ color: "var(--fg-4)" }}>—</span>
+                    )}
+                  </td>
+                  <td
+                    className="num"
+                    title={`Initial: $${collateralInitialHuman.toLocaleString()} · Locked now: $${collateralHuman.toLocaleString()}`}
+                  >
+                    ${collateralHuman.toLocaleString()}
                   </td>
                   <td>
                     <PaidMonthsBar
