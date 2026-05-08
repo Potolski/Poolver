@@ -405,12 +405,18 @@ fn cpi_collateral_refund<'info>(
 
 pub fn handle_claim_winning<'info>(
     ctx: Context<'info, ClaimWinning<'info>>,
+    claim_month: u8,
 ) -> Result<()> {
     let now = Clock::get()?.unix_timestamp;
     let pool_key = ctx.accounts.pool.key();
     let winner_key = ctx.accounts.winner.key();
 
     // ───── 1. Pool gates ───────────────────────────────────────────────
+    // `claim_month` arg lets the winner claim retroactively for any past
+    // month they won (or the current month). The previous behavior only
+    // allowed claim during the same month, so once `advance_month` ran
+    // the winner could no longer claim. That blocked demos when the
+    // winner wasn't online to claim in time.
     let current_month: u8;
     let pool_tier: Tier;
     let winning_bid: u64;
@@ -424,10 +430,16 @@ pub fn handle_claim_winning<'info>(
             pool.current_month >= 1 && pool.current_month <= Pool::TOTAL_MONTHS,
             CoreError::PoolNotStarted
         );
+        // Claim month must be in [1, current_month] — can claim past or
+        // current month, but not a future month.
+        require!(
+            claim_month >= 1 && claim_month <= pool.current_month,
+            CoreError::NotWinner
+        );
         // SPEC_QUESTION-36: step 13 — Tier dispatch handled in CPI helper
         // below; this handler accepts both tiers.
 
-        let m_idx = (pool.current_month as usize) - 1;
+        let m_idx = (claim_month as usize) - 1;
         let mw = pool.winners[m_idx];
         // Winner must have been selected: month != 0 sentinel + selected_at != 0.
         require!(mw.month != 0 && mw.selected_at != 0, CoreError::NotWinner);
@@ -436,7 +448,7 @@ pub fn handle_claim_winning<'info>(
         // Authorization: caller must be the selected winner.
         require_keys_eq!(mw.winner, winner_key, CoreError::NotWinner);
 
-        current_month = pool.current_month;
+        current_month = claim_month;
         pool_tier = pool.tier;
         winning_bid = mw.winning_bid;
         stored_net_payout = mw.net_payout;

@@ -703,7 +703,16 @@ fn claim_winning_for(
         adapter_state,
         adapter_usdc,
     );
-    let ix = build_ix(metas, poolver_core::instruction::ClaimWinning {}.data());
+    // Test helper claims the current month — matches pre-retroactive-claim
+    // behavior so existing tests don't need rewriting.
+    let pool_acct = env.fetch_pool(&pool);
+    let ix = build_ix(
+        metas,
+        poolver_core::instruction::ClaimWinning {
+            claim_month: pool_acct.current_month,
+        }
+        .data(),
+    );
     send_ix(&mut env.svm, winner, ix)
 }
 

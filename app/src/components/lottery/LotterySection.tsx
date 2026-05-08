@@ -271,11 +271,16 @@ export function LotterySection({
                   {selecting ? "Selecting…" : "▶ Run draw / select winner"}
                 </button>
               )}
-              {monthEnded && month > 0 && bidStats?.winnerSelected && (
+              {monthEnded && month > 0 && (
                 <button
                   className="btn primary"
                   disabled={advancing}
                   onClick={handleAdvance}
+                  title={
+                    bidStats?.winnerSelected
+                      ? "Advance to the next month"
+                      : "Advance — note: no winner selected yet for this month. Run draw first or skip the month with no winner."
+                  }
                 >
                   {advancing ? "Advancing…" : "↯ Advance month"}
                 </button>

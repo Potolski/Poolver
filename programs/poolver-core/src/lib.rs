@@ -119,8 +119,9 @@ pub mod poolver_core {
 
     pub fn claim_winning<'info>(
         ctx: Context<'info, ClaimWinning<'info>>,
+        claim_month: u8,
     ) -> Result<()> {
-        handle_claim_winning(ctx)
+        handle_claim_winning(ctx, claim_month)
     }
 
     pub fn distribute_yield<'info>(

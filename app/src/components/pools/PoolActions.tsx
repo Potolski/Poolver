@@ -78,11 +78,12 @@ export function PoolActions({ pool, participant, monthState, onRefresh }: Props)
     return sendIxs(client, [ix]);
   };
 
-  const submitClaim = async () => {
+  const submitClaim = async (claimMonth: number) => {
     const ix = await claimWinningIx(client, {
       pool: pool.publicKey,
       tier: pool.tier,
       usdcMint: USDC_MINT_DEVNET_DEFAULT,
+      claimMonth,
     });
     return sendIxs(client, [ix]);
   };
@@ -124,24 +125,39 @@ export function PoolActions({ pool, participant, monthState, onRefresh }: Props)
     participant && currentMonth > 0
       ? hasPaidMonth(participant, currentMonth)
       : false;
-  // Winner status is on `pool.winners[m-1]`, NOT on `participant.hasWon`
-  // (that flag only flips INSIDE claim_winning). After select_winner runs
-  // we have a winner pubkey + selectedAt > 0 but the winning participant
-  // hasn't claimed yet — that's the window where we want to show the
-  // "Claim winnings" button.
-  const monthWinner = currentMonth > 0
-    ? ((pool.raw as { winners?: Array<{
-        winner: { toBase58: () => string };
-        selectedAt: { gtn?: (n: number) => boolean };
-        claimed: boolean;
-      }> }).winners?.[currentMonth - 1])
-    : undefined;
+
+  // Winner status lives on `pool.winners[m-1]`, NOT on `participant.hasWon`
+  // (that flag only flips INSIDE claim_winning). Scan ALL past months —
+  // a winner may not have claimed before the month advanced. The on-chain
+  // claim_winning ix accepts a `claim_month` arg so retroactive claims
+  // work even after advance_month.
+  type RawWinner = {
+    winner: { toBase58: () => string };
+    selectedAt: { gtn?: (n: number) => boolean };
+    claimed: boolean;
+  };
+  const winners = (pool.raw as { winners?: RawWinner[] }).winners ?? [];
+  const myUnclaimedWinMonth = (() => {
+    const me = publicKey?.toBase58();
+    if (!me) return null;
+    for (let m = 1; m <= Math.min(currentMonth, 12); m++) {
+      const w = winners[m - 1];
+      if (
+        w &&
+        w.selectedAt?.gtn?.(0) &&
+        !w.claimed &&
+        w.winner.toBase58() === me
+      )
+        return m;
+    }
+    return null;
+  })();
+
+  // Current month's winner (for non-winner banner)
+  const monthWinner = currentMonth > 0 ? winners[currentMonth - 1] : undefined;
   const winnerSelectedThisMonth =
     !!monthWinner?.selectedAt && monthWinner.selectedAt.gtn?.(0);
-  const isWinner =
-    winnerSelectedThisMonth &&
-    !monthWinner?.claimed &&
-    monthWinner?.winner.toBase58() === publicKey?.toBase58();
+  const isWinner = myUnclaimedWinMonth !== null;
 
   if (isComplete) {
     return (
@@ -191,13 +207,14 @@ export function PoolActions({ pool, participant, monthState, onRefresh }: Props)
     );
   }
 
-  // Surface "you won, claim now" messaging even before the button —
-  // helps demo participants who watch the toast disappear and don't
-  // know what to do next.
+  // Surface "you won, claim now" messaging even before the button.
+  // Note: a winner can claim retroactively (any past month they won
+  // and haven't claimed yet) — the pool no longer blocks advance on
+  // unclaimed winners.
   const banner = isWinner
-    ? `🎉 You won month ${currentMonth}! Click "Claim winnings" to post collateral and receive the pot.`
+    ? `🎉 You won month ${myUnclaimedWinMonth}! Click "Claim winnings" to post collateral and receive the pot. (Retroactive claim — works even if the month has already advanced.)`
     : winnerSelectedThisMonth && !monthWinner?.claimed
-      ? `Winner of month ${currentMonth}: ${monthWinner!.winner.toBase58().slice(0, 8)}… — waiting on them to claim before the month can advance.`
+      ? `Winner of month ${currentMonth}: ${monthWinner!.winner.toBase58().slice(0, 8)}… — they can claim now or later (the pool can advance without it).`
       : null;
 
   return (
@@ -231,13 +248,19 @@ export function PoolActions({ pool, participant, monthState, onRefresh }: Props)
               ? "Signing…"
               : `▶ Pay month ${currentMonth}`}
         </button>
-        {isWinner && (
+        {isWinner && myUnclaimedWinMonth !== null && (
           <button
             className="btn primary lg"
             disabled={busy !== null}
-            onClick={() => run("claim", "Claiming winnings", submitClaim)}
+            onClick={() =>
+              run("claim", `Claiming month ${myUnclaimedWinMonth}`, () =>
+                submitClaim(myUnclaimedWinMonth)
+              )
+            }
           >
-            {busy === "claim" ? "Claiming…" : "✶ Claim winnings"}
+            {busy === "claim"
+              ? "Claiming…"
+              : `✶ Claim month ${myUnclaimedWinMonth} winnings`}
           </button>
         )}
       </div>

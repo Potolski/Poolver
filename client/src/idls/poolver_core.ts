@@ -584,7 +584,12 @@ export type PoolverCore = {
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "claimMonth",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "commitBid",

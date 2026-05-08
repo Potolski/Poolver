@@ -578,7 +578,12 @@
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "claim_month",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "commit_bid",
