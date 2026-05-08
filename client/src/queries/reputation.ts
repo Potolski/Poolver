@@ -16,6 +16,8 @@ export interface UserReputationView {
   kycStatus: KycLevelName;
   kycAttestation: PublicKey;
   lastKycAt: BN;
+  /** Lifetime count of (pool, month) slashes for missing a contribution. */
+  monthsMissedLifetime: number;
   raw: Record<string, unknown>;
 }
 
@@ -52,6 +54,7 @@ export async function fetchUserReputation(
     kycStatus: decodeKycStatus(raw.kycStatus as number),
     kycAttestation: raw.kycAttestation as PublicKey,
     lastKycAt: raw.lastKycAt as BN,
+    monthsMissedLifetime: (raw.monthsMissedLifetime as number) ?? 0,
     raw,
   };
 }

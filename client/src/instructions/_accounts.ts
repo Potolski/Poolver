@@ -685,3 +685,50 @@ export const SDK_PROGRAMS = {
   yieldVaultProgram: POOLVER_YIELD_VAULT_PROGRAM_ID,
   yieldDefiProgram: POOLVER_YIELD_DEFI_PROGRAM_ID,
 };
+
+// ─────────────────────────── Slash unpaid (V1) ────────────────────────
+
+export interface SlashUnpaidAccounts {
+  caller: PublicKey;
+  protocolConfig: PublicKey;
+  pool: PublicKey;
+  participant: PublicKey;
+  userReputation: PublicKey;
+  collateralVault: PublicKey;
+  poolUsdcVault: PublicKey;
+  coreInvoker: PublicKey;
+  adapterState: PublicKey;
+  adapterUsdcVault: PublicKey;
+  yieldAdapterProgram: PublicKey;
+  tokenProgram: PublicKey;
+}
+
+export function buildSlashUnpaidAccounts(
+  caller: PublicKey,
+  pool: PublicKey,
+  delinquent: PublicKey,
+  tier: TierName
+): SlashUnpaidAccounts {
+  const [protocolConfig] = findProtocolConfig();
+  const [participant] = findParticipant(pool, delinquent);
+  const [userReputation] = findUserReputation(delinquent);
+  const [collateralVault] = findCollateralVault(pool);
+  const [poolUsdcVault] = findPoolUsdcVault(pool);
+  const [coreInvoker] = findCoreInvoker();
+  const [adapterState] = findAdapterState(tier, pool);
+  const [adapterUsdcVault] = findAdapterUsdc(tier, pool);
+  return {
+    caller,
+    protocolConfig,
+    pool,
+    participant,
+    userReputation,
+    collateralVault,
+    poolUsdcVault,
+    coreInvoker,
+    adapterState,
+    adapterUsdcVault,
+    yieldAdapterProgram: adapterProgramId(tier),
+    tokenProgram: TOKEN_PROGRAM_ID,
+  };
+}

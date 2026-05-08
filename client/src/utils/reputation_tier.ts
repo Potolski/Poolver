@@ -15,10 +15,12 @@ export interface RepTierInfo {
 /**
  * Map a participant's lifetime reputation onto a 4-color tier.
  *
- *   gray   = new user with no completed/defaulted history (neutral)
- *   green  = proven good — has completed pools and never defaulted
- *   yellow = mixed — has defaulted at least once but ALSO completed pools
- *   red    = only-bad history — defaulted but never completed a pool
+ *   gray   = new user with no history (neutral)
+ *   green  = proven good — completed pools, no slashes, no defaults
+ *   yellow = soft warning — has been slashed for missed months OR
+ *            mixed completed/defaulted history
+ *   red    = full default — only-bad history, OR slashed across many
+ *            months without any completed pool
  *
  * Pass `null` for not-yet-initialized reputation accounts; result is gray.
  */
@@ -33,36 +35,52 @@ export function repTier(rep: UserReputationView | null | undefined): RepTierInfo
   }
   const completed = rep.poolsCompleted ?? 0;
   const defaulted = rep.poolsDefaulted ?? 0;
+  const missed = rep.monthsMissedLifetime ?? 0;
 
-  if (defaulted === 0 && completed === 0) {
+  // Full default takes precedence — only-bad history.
+  if (defaulted > 0 && completed === 0) {
     return {
-      tier: "gray",
-      label: "Neutral",
-      description: "No completed or defaulted pools yet",
-      color: "var(--fg-4)",
+      tier: "red",
+      label: "Risky",
+      description: `${defaulted} default${defaulted === 1 ? "" : "s"} · 0 completed`,
+      color: "var(--err, #ef4444)",
     };
   }
-  if (defaulted === 0 && completed > 0) {
+  // Many missed months and no completed pools → red.
+  if (missed >= 4 && completed === 0) {
     return {
-      tier: "green",
-      label: "Trusted",
-      description: `Completed ${completed} pool${completed === 1 ? "" : "s"} · 0 defaults`,
-      color: "var(--ok, #4ade80)",
+      tier: "red",
+      label: "Risky",
+      description: `Slashed for ${missed} missed month${missed === 1 ? "" : "s"} · 0 completed`,
+      color: "var(--err, #ef4444)",
     };
   }
-  if (defaulted > 0 && completed > 0) {
+  // Mixed history (defaults but also completed pools) OR any slashes.
+  if (defaulted > 0 || missed > 0) {
     return {
       tier: "yellow",
       label: "Mixed",
-      description: `${completed} completed · ${defaulted} defaulted`,
+      description:
+        defaulted > 0
+          ? `${completed} completed · ${defaulted} defaulted · ${missed} missed`
+          : `${completed} completed · ${missed} missed month${missed === 1 ? "" : "s"}`,
       color: "var(--warn, #facc15)",
     };
   }
-  // defaulted > 0 && completed == 0
+  // Clean record with completed pools.
+  if (completed > 0) {
+    return {
+      tier: "green",
+      label: "Trusted",
+      description: `Completed ${completed} pool${completed === 1 ? "" : "s"} · 0 defaults · 0 missed`,
+      color: "var(--ok, #4ade80)",
+    };
+  }
+  // Brand new — no completed, no defaulted, no missed.
   return {
-    tier: "red",
-    label: "Risky",
-    description: `${defaulted} default${defaulted === 1 ? "" : "s"} · 0 completed`,
-    color: "var(--err, #ef4444)",
+    tier: "gray",
+    label: "Neutral",
+    description: "No completed or defaulted pools yet",
+    color: "var(--fg-4)",
   };
 }

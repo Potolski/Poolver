@@ -43,6 +43,7 @@ export type { DistributeYieldArgs } from "./instructions/distribute_yield";
 export { markLatePaymentIx } from "./instructions/mark_late_payment";
 export { suspendParticipantIx } from "./instructions/suspend_participant";
 export { liquidateDefaultIx } from "./instructions/liquidate_default";
+export { slashUnpaidIx } from "./instructions/slash_unpaid";
 
 // Account-context builders (low-level — for callers composing custom txs)
 export * from "./instructions/_accounts";

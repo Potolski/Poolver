@@ -8,6 +8,7 @@ import {
   POOLVER_ALT_DEVNET,
   advanceMonthIx,
   selectWinnerIx,
+  slashUnpaidIx,
   type ParticipantView,
   type PoolMonthState,
   type PoolView,
@@ -50,6 +51,7 @@ export function LotterySection({
   const { client, connected, publicKey } = usePoolver();
   const [advancing, setAdvancing] = useState(false);
   const [selecting, setSelecting] = useState(false);
+  const [slashing, setSlashing] = useState(false);
   const [bidStats, setBidStats] = useState<{
     committed: number;
     revealed: number;
@@ -57,6 +59,12 @@ export function LotterySection({
     bidders: PublicKey[];
     winnerSelected: boolean;
   } | null>(null);
+  /** Active participants who haven't paid the current month. Loaded
+   *  alongside `bidStats` and refreshed when the pool month changes;
+   *  used to gate the "Slash N unpaid" button. */
+  const [unpaidParticipants, setUnpaidParticipants] = useState<
+    PublicKey[] | null
+  >(null);
 
   const month = monthState?.currentMonth ?? pool.currentMonth;
   const secsLeft = monthState?.secondsUntilMonthEnd ?? 0;
@@ -128,6 +136,98 @@ export function LotterySection({
       cancelled = true;
     };
   }, [client, pool.publicKey, month, pool.currentMonth]);
+
+  // Find every active participant who hasn't paid the current month.
+  // Drives the "Slash N unpaid" button visible after month_end.
+  useEffect(() => {
+    if (!month || month < 1) return;
+    let cancelled = false;
+    interface ParticipantRaw {
+      user: PublicKey;
+      paidMonths: number;
+      isDefaulted: boolean;
+      collateralLocked: BN;
+    }
+    interface ParticipantClient {
+      all: (filters?: unknown[]) => Promise<
+        Array<{ publicKey: PublicKey; account: ParticipantRaw }>
+      >;
+    }
+    const participantClient = (
+      client.core.account as unknown as { participant: ParticipantClient }
+    ).participant;
+    participantClient
+      .all([{ memcmp: { offset: 8, bytes: pool.publicKey.toBase58() } }])
+      .then((accounts) => {
+        if (cancelled) return;
+        const monthBit = 1 << (month - 1);
+        const unpaid = accounts
+          .filter(
+            (a) =>
+              !a.account.isDefaulted &&
+              (a.account.paidMonths & monthBit) === 0 &&
+              a.account.collateralLocked.gtn(0)
+          )
+          .map((a) => a.account.user);
+        setUnpaidParticipants(unpaid);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setUnpaidParticipants([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, pool.publicKey, month, pool.paidCountForCurrentMonth]);
+
+  const handleSlashAll = async () => {
+    if (!connected) {
+      toast.error("Connect a wallet to slash unpaid participants");
+      return;
+    }
+    if (!unpaidParticipants || unpaidParticipants.length === 0) {
+      toast.success("No unpaid participants to slash");
+      return;
+    }
+    setSlashing(true);
+    const toastId = toast.loading(
+      `Slashing ${unpaidParticipants.length} unpaid wallet${
+        unpaidParticipants.length === 1 ? "" : "s"
+      }…`
+    );
+    let success = 0;
+    let failed = 0;
+    try {
+      for (const delinquent of unpaidParticipants) {
+        try {
+          const ix = await slashUnpaidIx(client, {
+            pool: pool.publicKey,
+            delinquent,
+            tier: pool.tier,
+          });
+          await sendIxs(client, [ix]);
+          success++;
+        } catch (e) {
+          failed++;
+          // Log per-wallet but keep going.
+          // eslint-disable-next-line no-console
+          console.error(
+            "slash_unpaid failed for",
+            delinquent.toBase58(),
+            e
+          );
+        }
+      }
+      toast.success(
+        `Slashed ${success}/${unpaidParticipants.length}` +
+          (failed > 0 ? ` · ${failed} failed (see console)` : ""),
+        { id: toastId }
+      );
+      await onRefresh();
+    } finally {
+      setSlashing(false);
+    }
+  };
 
   const handleSelect = async () => {
     if (!connected) {
@@ -303,6 +403,22 @@ export function LotterySection({
                 alignItems: "center",
               }}
             >
+              {monthEnded &&
+                month > 0 &&
+                unpaidParticipants &&
+                unpaidParticipants.length > 0 && (
+                  <button
+                    className="btn primary"
+                    disabled={slashing || !connected}
+                    onClick={handleSlashAll}
+                    title={`${unpaidParticipants.length} active wallet(s) didn't pay this month — slash to keep the pot whole`}
+                    style={{ background: "var(--err, #ef4444)", color: "#fff" }}
+                  >
+                    {slashing
+                      ? `Slashing… (${unpaidParticipants.length})`
+                      : `⚠ Slash ${unpaidParticipants.length} unpaid`}
+                  </button>
+                )}
               {revealWindowClosed && month > 0 && !monthWinnerSelected && (
                 <button
                   className="btn primary"
