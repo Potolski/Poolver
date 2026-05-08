@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import BN from "bn.js";
 import { PublicKey } from "@solana/web3.js";
 import {
@@ -14,6 +14,13 @@ import {
 import { SectionHead } from "@/components/layout/SectionHead";
 import { usePoolver } from "@/providers/PoolverProvider";
 import { truncateAddress } from "@/lib/utils";
+
+interface MonthWinnerRaw {
+  month: number;
+  winner: PublicKey;
+  selectedAt: BN;
+  claimed: boolean;
+}
 
 interface RosterRow {
   pda: PublicKey;
@@ -81,6 +88,23 @@ function PaidMonthsBar({ bitmap, totalMonths }: { bitmap: number; totalMonths: n
 
 export function ParticipantRoster({ pool }: { pool: PoolView }) {
   const { client, publicKey } = usePoolver();
+
+  // Map<wallet → win-month> derived from pool.winners. `Participant.has_won`
+  // only flips at claim time, so a freshly-selected (unclaimed) winner
+  // would otherwise show as "—". Use the on-chain `winners` array as the
+  // source of truth for the roster column.
+  const winsByUser = useMemo(() => {
+    const map = new Map<string, number>();
+    const arr = (pool.raw as { winners?: MonthWinnerRaw[] }).winners;
+    if (!Array.isArray(arr)) return map;
+    for (const w of arr) {
+      if (w.selectedAt && w.selectedAt.gtn?.(0) && w.month > 0) {
+        map.set(w.winner.toBase58(), w.month);
+      }
+    }
+    return map;
+  }, [pool.raw]);
+
   const [rows, setRows] = useState<RosterRow[] | null>(null);
   const [reps, setReps] = useState<Map<string, UserReputationView | null>>(
     new Map()
@@ -218,11 +242,15 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
               const repTooltip = rep
                 ? `${repInfo.label} · ${repInfo.description}\nJoined ${rep.poolsJoined ?? 0} · Completed ${rep.poolsCompleted ?? 0} · Defaulted ${rep.poolsDefaulted ?? 0}`
                 : "Reputation account not initialized";
+              const winMonth =
+                winsByUser.get(r.user.toBase58()) ??
+                (r.hasWon ? r.winMonth : 0);
+              const hasWonAny = winMonth > 0;
               const status = r.isDefaulted
                 ? { label: "Default", cls: "default" }
                 : r.isSuspended
                   ? { label: "Suspended", cls: "default" }
-                  : r.hasWon
+                  : hasWonAny
                     ? { label: "Received", cls: "received" }
                     : { label: "Active", cls: "eligible" };
               return (
@@ -296,8 +324,8 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
                     )}
                   </td>
                   <td className="num">
-                    {r.hasWon
-                      ? `M${String(r.winMonth).padStart(2, "0")}`
+                    {hasWonAny
+                      ? `M${String(winMonth).padStart(2, "0")}`
                       : "—"}
                   </td>
                 </tr>

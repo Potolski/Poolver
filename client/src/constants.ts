@@ -53,6 +53,16 @@ export const ADMIN_PUBKEY_DEVNET = new PublicKey(
   "FFwSGSnHwBkJve7dYhdKcq2JtpMxmA2rT7fJ9i2zxNFq"
 );
 
+// ─────────────────────────── Address Lookup Table ─────────────────────
+// Holds 8 protocol-static addresses (protocol_config, core_invoker,
+// reserve_fund × tier, reserve_vault × tier, reserve_program,
+// token_program). Used by `select_winner` to fit a 12-non-bidder lottery
+// draw under the 1232-byte legacy-tx wire cap. Bootstrapped once via
+// `scripts/setup-alt.ts` and immutable thereafter (authority = admin).
+export const POOLVER_ALT_DEVNET = new PublicKey(
+  "8hvEVzjkh8hnr4qfqYNbaj4AL33F4aFbd1DyMQ1x6JeW"
+);
+
 // ─────────────────────────── PDA seeds (core) ─────────────────────────
 // Mirror of programs/poolver-core/src/constants.rs.
 

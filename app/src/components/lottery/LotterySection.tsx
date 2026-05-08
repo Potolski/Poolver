@@ -5,6 +5,7 @@ import { PublicKey } from "@solana/web3.js";
 import { toast } from "sonner";
 import {
   ADMIN_PUBKEY_DEVNET,
+  POOLVER_ALT_DEVNET,
   advanceMonthIx,
   adminSkipPhaseIx,
   selectWinnerIx,
@@ -16,7 +17,7 @@ import {
 import { PoolverMark } from "@/components/brand/PoolverLogo";
 import { SectionHead } from "@/components/layout/SectionHead";
 import { usePoolver } from "@/providers/PoolverProvider";
-import { sendIxs } from "@/lib/tx-helpers";
+import { sendIxs, sendIxsV0 } from "@/lib/tx-helpers";
 import { fmtCountdown } from "@/lib/format";
 import { BidPanel } from "./BidPanel";
 
@@ -152,14 +153,37 @@ export function LotterySection({
       //   bidders     = every wallet that called commit_bid this month
       //                 (revealed or not — unrevealed gets stake forfeit)
       //   nonBidders  = active participants who didn't bid (lottery pool)
+      //
+      // TX-SIZE: each non-bidder costs 2 accounts (~64 bytes) in the tx.
+      // 12 non-bidders + 9 base accounts puts us right at the 1232-byte
+      // wire limit. Two optimizations to stay under:
+      //   (1) skip non-bidders entirely when at least one bid revealed —
+      //       the handler enters the bid branch and never touches lottery
+      //       candidates.
+      //   (2) skip non-bidders who already won a past month — the handler
+      //       filters them via `is_eligible` anyway, so we just save bytes.
       const bidderSet = new Set(bidStats.bidders.map((p) => p.toBase58()));
+      const winnerSet = new Set<string>();
+      const winners =
+        ((pool.raw as { winners?: Array<{ winner: PublicKey; selectedAt: { gtn?: (n: number) => boolean } }> })
+          .winners) ?? [];
+      for (const w of winners) {
+        if (w.selectedAt && w.selectedAt.gtn?.(0)) {
+          winnerSet.add(w.winner.toBase58());
+        }
+      }
       const allParticipants = (
         pool.raw as { participants?: Array<PublicKey | null> }
       ).participants ?? [];
       const nonBidders: PublicKey[] = [];
-      for (const p of allParticipants) {
-        if (!p) continue;
-        if (!bidderSet.has(p.toBase58())) nonBidders.push(p);
+      if (bidStats.revealed === 0) {
+        for (const p of allParticipants) {
+          if (!p) continue;
+          const k = p.toBase58();
+          if (bidderSet.has(k)) continue;
+          if (winnerSet.has(k)) continue;
+          nonBidders.push(p);
+        }
       }
       const ix = await selectWinnerIx(client, {
         pool: pool.publicKey,
@@ -168,7 +192,12 @@ export function LotterySection({
         bidders: bidStats.bidders,
         nonBidders,
       });
-      const sig = await sendIxs(client, [ix]);
+      // v0 + ALT: the protocol-static ALT holds 8 addresses
+      // (protocol_config, core_invoker, reserve_fund × tier,
+      // reserve_vault × tier, reserve_program, token_program), which
+      // saves ~248 bytes — enough headroom for a 12-non-bidder lottery
+      // draw to fit under the 1232-byte legacy-tx cap.
+      const sig = await sendIxsV0(client, [ix], [POOLVER_ALT_DEVNET]);
       toast.success("Winner selected", {
         id: toastId,
         description: `sig: ${sig.slice(0, 12)}…`,
