@@ -28,6 +28,7 @@ export { contributeIx } from "./instructions/contribute";
 export type { ContributeArgs } from "./instructions/contribute";
 export { advanceMonthIx } from "./instructions/advance_month";
 export { adminSkipPhaseIx } from "./instructions/admin_skip_phase";
+export { refundCollateralIx } from "./instructions/refund_collateral";
 export { commitBidIx } from "./instructions/commit_bid";
 export type { CommitBidArgs, CommitBidPlan } from "./instructions/commit_bid";
 export { revealBidIx } from "./instructions/reveal_bid";

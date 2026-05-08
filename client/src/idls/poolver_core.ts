@@ -2576,6 +2576,135 @@ export type PoolverCore = {
       ]
     },
     {
+      "name": "refundCollateral",
+      "docs": [
+        "Refund a non-defaulting participant's locked collateral after",
+        "the pool has completed. Permissionless — anyone may call."
+      ],
+      "discriminator": [
+        200,
+        219,
+        212,
+        225,
+        216,
+        188,
+        155,
+        225
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "docs": [
+            "Permissionless caller — pays the tx fee. The refund still goes",
+            "to `participant.user`'s ATA, not the caller."
+          ],
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.creator",
+                "account": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.pool_id",
+                "account": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "participant",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  114,
+                  116,
+                  105,
+                  99,
+                  105,
+                  112,
+                  97,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "participant.user",
+                "account": "participant"
+              }
+            ]
+          }
+        },
+        {
+          "name": "participantUsdc",
+          "writable": true
+        },
+        {
+          "name": "collateralVault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  108,
+                  97,
+                  116,
+                  101,
+                  114,
+                  97,
+                  108,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "revealBid",
       "discriminator": [
         48,
@@ -3107,6 +3236,19 @@ export type PoolverCore = {
         184,
         20,
         77
+      ]
+    },
+    {
+      "name": "collateralRefunded",
+      "discriminator": [
+        61,
+        61,
+        254,
+        24,
+        36,
+        237,
+        169,
+        51
       ]
     },
     {
@@ -3820,6 +3962,33 @@ export type PoolverCore = {
           },
           {
             "name": "stakeAmount",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "collateralRefunded",
+      "docs": [
+        "Collateral refunded to a participant after pool completion."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "participant",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
             "type": "u64"
           },
           {

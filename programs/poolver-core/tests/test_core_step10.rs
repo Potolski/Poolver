@@ -148,7 +148,7 @@ fn metas_join_pool(
         AccountMeta::new(participant, false),
         AccountMeta::new(user_usdc, false),
         AccountMeta::new(pool_usdc_vault, false),
-        AccountMeta::new_readonly(collateral_vault, false),
+        AccountMeta::new(collateral_vault, false),
         AccountMeta::new(protocol_fee_vault, false),
         AccountMeta::new_readonly(core_invoker, false),
         AccountMeta::new(reserve_fund, false),

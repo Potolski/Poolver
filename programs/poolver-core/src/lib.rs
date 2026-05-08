@@ -51,6 +51,12 @@ pub mod poolver_core {
         handle_admin_skip_phase(ctx)
     }
 
+    /// Refund a non-defaulting participant's locked collateral after
+    /// the pool has completed. Permissionless — anyone may call.
+    pub fn refund_collateral(ctx: Context<RefundCollateral>) -> Result<()> {
+        handle_refund_collateral(ctx)
+    }
+
     // MOCK_KYC: V1 only — replaced in production by `issue_kyc_attestation`
     // signed by `protocol_config.kyc_oracle`. Building with
     // `--no-default-features` drops this entry from the program dispatch

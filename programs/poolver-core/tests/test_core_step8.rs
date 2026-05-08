@@ -139,7 +139,7 @@ fn metas_join_pool(
         AccountMeta::new(participant, false),
         AccountMeta::new(user_usdc, false),
         AccountMeta::new(pool_usdc_vault, false),
-        AccountMeta::new_readonly(collateral_vault, false),
+        AccountMeta::new(collateral_vault, false),
         AccountMeta::new(protocol_fee_vault, false),
         AccountMeta::new_readonly(core_invoker, false),
         AccountMeta::new(reserve_fund, false),
@@ -878,7 +878,12 @@ fn t100_claim_winning_happy_path() {
     assert!(p.winners[0].claimed, "MonthWinner.claimed flipped");
     assert_eq!(p.bid_credit_balance, participant_share, "75% credited");
     assert_eq!(p.total_distributed, net_payout);
-    assert_eq!(p.total_collateral_locked, total_collateral);
+    // Total collateral = 12 join collaterals (1× contribution each) +
+    // the winner's post-win collateral.
+    assert_eq!(
+        p.total_collateral_locked,
+        total_collateral + 12 * contribution
+    );
 
     // Participant state.
     let (part_pda, _) = env.participant_pda(&pool, &u0.pubkey());

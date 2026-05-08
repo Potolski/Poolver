@@ -1,6 +1,7 @@
 pub mod admin_close_protocol;
 pub mod admin_skip_phase;
 pub mod advance_month;
+pub mod refund_collateral;
 pub mod claim_winning;
 pub mod commit_bid;
 pub mod contribute;
@@ -21,6 +22,7 @@ pub mod mock_issue_kyc;
 pub use admin_close_protocol::*;
 pub use admin_skip_phase::*;
 pub use advance_month::*;
+pub use refund_collateral::*;
 pub use claim_winning::*;
 pub use commit_bid::*;
 pub use contribute::*;

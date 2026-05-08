@@ -42,6 +42,15 @@ pub struct PhaseSkipped {
     pub timestamp: i64,
 }
 
+/// Collateral refunded to a participant after pool completion.
+#[event]
+pub struct CollateralRefunded {
+    pub pool: Pubkey,
+    pub participant: Pubkey,
+    pub amount: u64,
+    pub timestamp: i64,
+}
+
 #[event]
 pub struct KycAttestationIssued {
     pub user: Pubkey,

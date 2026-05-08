@@ -112,11 +112,13 @@ pub struct JoinPool<'info> {
     )]
     pub pool_usdc_vault: UncheckedAccount<'info>,
 
-    /// Collateral vault — present so future steps that mutate
-    /// collateral can rely on it being supplied; not touched in step 4.
+    /// Collateral vault — receives the join collateral (1× contribution
+    /// per spec §4 demo extension). Mutable since join now transfers
+    /// USDC into it.
     /// CHECK: PDA seeds + key equality with `pool.collateral_vault`
     /// enforce identity.
     #[account(
+        mut,
         seeds = [COLLATERAL_VAULT_SEED, pool.key().as_ref()],
         bump,
         constraint = collateral_vault.key() == pool.collateral_vault
@@ -362,13 +364,31 @@ pub fn handle_join_pool<'info>(
     let pool_usdc_vault_bump = ctx.bumps.pool_usdc_vault;
     let core_invoker_bump = ctx.bumps.core_invoker;
 
-    // ───── 4. user → pool_usdc_vault (gross) ──────────────────────────
+    // Join collateral — every participant escrows 1× contribution_amount
+    // when they join. Held in collateral_vault for the entire pool
+    // duration; refunded via `refund_collateral` once pool.is_complete
+    // and the participant has not defaulted. If the participant later
+    // wins, claim_winning posts additional collateral on top per spec
+    // §4 (the join collateral isn't credited against the win-collateral
+    // requirement — it stays as separate stake).
+    let join_collateral = contribution;
+
+    // ───── 4a. user → pool_usdc_vault (contribution) ──────────────────
     cpi_user_to_pool_vault(
         ctx.accounts.token_program.to_account_info(),
         ctx.accounts.user_usdc.to_account_info(),
         ctx.accounts.pool_usdc_vault.to_account_info(),
         ctx.accounts.user.to_account_info(),
         contribution,
+    )?;
+
+    // ───── 4b. user → collateral_vault (join collateral) ──────────────
+    cpi_user_to_pool_vault(
+        ctx.accounts.token_program.to_account_info(),
+        ctx.accounts.user_usdc.to_account_info(),
+        ctx.accounts.collateral_vault.to_account_info(),
+        ctx.accounts.user.to_account_info(),
+        join_collateral,
     )?;
 
     // ───── 5. pool_usdc_vault → protocol_fee_vault ────────────────────
@@ -437,8 +457,11 @@ pub fn handle_join_pool<'info>(
     participant.has_won = false;
     participant.win_month = 0;
     participant.bid_amount_when_won = 0;
-    participant.collateral_locked = 0;
-    participant.collateral_initial = 0;
+    // Join collateral lives in `collateral_locked` until claim_winning
+    // overwrites it (winner) or refund_collateral returns it (non-winner
+    // at pool_complete) or liquidate_default slashes it.
+    participant.collateral_locked = join_collateral;
+    participant.collateral_initial = join_collateral;
     participant.is_defaulted = false;
     participant.is_suspended = false;
     participant.defaulted_at = 0;
@@ -464,6 +487,10 @@ pub fn handle_join_pool<'info>(
     pool.total_contributed = pool
         .total_contributed
         .checked_add(net_to_pool)
+        .ok_or(CoreError::MathOverflow)?;
+    pool.total_collateral_locked = pool
+        .total_collateral_locked
+        .checked_add(join_collateral)
         .ok_or(CoreError::MathOverflow)?;
 
     let rep = &mut ctx.accounts.user_reputation;
