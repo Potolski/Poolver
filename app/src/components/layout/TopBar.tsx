@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { PoolverMark } from "@/components/brand/PoolverLogo";
 import { WalletButton } from "@/components/wallet/WalletButton";
 import { FaucetButton } from "@/components/wallet/FaucetButton";
+import { UsdcBalance } from "@/components/wallet/UsdcBalance";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 const NAV = [
@@ -62,6 +63,7 @@ export function TopBar() {
           <span className="dot" />
           Solana · Devnet
         </span>
+        <UsdcBalance />
         <FaucetButton />
         <ThemeToggle />
         <WalletButton />

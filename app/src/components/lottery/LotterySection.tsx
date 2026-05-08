@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { PublicKey } from "@solana/web3.js";
 import { toast } from "sonner";
 import {
   advanceMonthIx,
+  selectWinnerIx,
   type ParticipantView,
   type PoolMonthState,
   type PoolView,
@@ -15,6 +17,20 @@ import { usePoolver } from "@/providers/PoolverProvider";
 import { sendIxs } from "@/lib/tx-helpers";
 import { fmtCountdown } from "@/lib/format";
 import { BidPanel } from "./BidPanel";
+
+interface BidAccountRaw {
+  pool: PublicKey;
+  user: PublicKey;
+  month: number;
+  revealed: boolean;
+  isWinner: boolean;
+}
+
+interface BidAccountClient {
+  all: (filters?: unknown[]) => Promise<
+    Array<{ publicKey: PublicKey; account: BidAccountRaw }>
+  >;
+}
 
 interface Props {
   pool: PoolView;
@@ -31,17 +47,96 @@ export function LotterySection({
 }: Props) {
   const { client, connected } = usePoolver();
   const [advancing, setAdvancing] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const [bidStats, setBidStats] = useState<{
+    committed: number;
+    revealed: number;
+    revealedBidders: PublicKey[];
+    winnerSelected: boolean;
+  } | null>(null);
 
   const month = monthState?.currentMonth ?? pool.currentMonth;
   const secsLeft = monthState?.secondsUntilMonthEnd ?? 0;
   const monthEnded = secsLeft <= 0;
+  const revealWindowClosed =
+    pool.revealWindowEndsAt.gtn(0) &&
+    Date.now() / 1000 >= pool.revealWindowEndsAt.toNumber();
   const stage = monthState?.inBidWindow
     ? { label: "BID OPEN", color: "var(--acc)" }
     : monthState?.inRevealWindow
       ? { label: "REVEAL OPEN", color: "var(--acc-2, var(--acc))" }
-      : monthEnded
-        ? { label: "MONTH ENDED", color: "var(--warn)" }
-        : { label: "—", color: "var(--fg-3)" };
+      : revealWindowClosed && month > 0 && !bidStats?.winnerSelected
+        ? { label: "READY TO DRAW", color: "var(--warn)" }
+        : monthEnded
+          ? { label: "MONTH ENDED", color: "var(--warn)" }
+          : { label: "—", color: "var(--fg-3)" };
+
+  // Pull current-month bid stats so the UI can show "X committed / Y revealed"
+  // and decide whether to surface the "Run draw" button.
+  useEffect(() => {
+    if (!month || month < 1) return;
+    let cancelled = false;
+    const bidClient = (
+      client.core.account as unknown as { bid: BidAccountClient }
+    ).bid;
+    bidClient
+      .all([
+        { memcmp: { offset: 8, bytes: pool.publicKey.toBase58() } },
+      ])
+      .then((accounts) => {
+        if (cancelled) return;
+        const thisMonth = accounts.filter((a) => a.account.month === month);
+        const revealed = thisMonth.filter((a) => a.account.revealed);
+        const winnerSelected = thisMonth.some((a) => a.account.isWinner);
+        setBidStats({
+          committed: thisMonth.length,
+          revealed: revealed.length,
+          revealedBidders: revealed.map((a) => a.account.user),
+          winnerSelected,
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBidStats({ committed: 0, revealed: 0, revealedBidders: [], winnerSelected: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, pool.publicKey, month, pool.currentMonth]);
+
+  const handleSelect = async () => {
+    if (!connected) {
+      toast.error("Connect a wallet to run the draw");
+      return;
+    }
+    if (!bidStats) {
+      toast.error("Loading bid state — try again in a moment");
+      return;
+    }
+    setSelecting(true);
+    const toastId = toast.loading("Selecting winner…");
+    try {
+      const ix = await selectWinnerIx(client, {
+        pool: pool.publicKey,
+        month,
+        revealedBidders: bidStats.revealedBidders,
+      });
+      const sig = await sendIxs(client, [ix]);
+      toast.success("Winner selected", {
+        id: toastId,
+        description: `sig: ${sig.slice(0, 12)}…`,
+      });
+      await onRefresh();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error("Select failed", {
+        id: toastId,
+        description: msg.slice(0, 200),
+      });
+    } finally {
+      setSelecting(false);
+    }
+  };
 
   const handleAdvance = async () => {
     if (!connected) {
@@ -131,7 +226,21 @@ export function LotterySection({
                 alignItems: "center",
               }}
             >
-              {monthEnded && month > 0 && (
+              {revealWindowClosed && month > 0 && !bidStats?.winnerSelected && (
+                <button
+                  className="btn primary"
+                  disabled={selecting}
+                  onClick={handleSelect}
+                  title={
+                    bidStats?.revealed
+                      ? `Pick the highest of ${bidStats.revealed} revealed bid(s)`
+                      : "No revealed bids — fall back to lottery (mock VRF)"
+                  }
+                >
+                  {selecting ? "Selecting…" : "▶ Run draw / select winner"}
+                </button>
+              )}
+              {monthEnded && month > 0 && bidStats?.winnerSelected && (
                 <button
                   className="btn primary"
                   disabled={advancing}
@@ -140,7 +249,7 @@ export function LotterySection({
                   {advancing ? "Advancing…" : "↯ Advance month"}
                 </button>
               )}
-              {!monthEnded && (
+              {!monthEnded && !revealWindowClosed && (
                 <span
                   style={{
                     fontFamily: "var(--mono)",
@@ -181,13 +290,48 @@ export function LotterySection({
             <span>Reveal nonce</span>
             <span className="v">stored in IndexedDB</span>
           </div>
-          <pre className="ascii" style={{ marginTop: 16 }}>
-{`   ┌── AUCTION FLOW ──────┐
-   │  commit  ->  reveal  │
-   │  reveal  ->  select  │
-   │  select  ->  claim   │
-   └──────────────────────┘`}
-          </pre>
+          <hr className="rule-dashed" />
+          <div className="outcome-label" style={{ marginBottom: 8 }}>
+            AUCTION FLOW
+          </div>
+          <div className="outcome-row">
+            <span>Step 1</span>
+            <span className="v">commit (sealed hash + 1% stake)</span>
+          </div>
+          <div className="outcome-row">
+            <span>Step 2</span>
+            <span className="v">reveal (after bid window closes)</span>
+          </div>
+          <div className="outcome-row">
+            <span>Step 3</span>
+            <span className="v">select_winner (anyone, after reveal)</span>
+          </div>
+          <div className="outcome-row">
+            <span>Step 4</span>
+            <span className="v">claim (winner posts collateral, takes pot)</span>
+          </div>
+          <hr className="rule-dashed" />
+          <div className="outcome-label" style={{ marginBottom: 8 }}>
+            MONTH {String(month).padStart(2, "0")} BIDS
+          </div>
+          <div className="outcome-row">
+            <span>Committed</span>
+            <span className="v">{bidStats?.committed ?? "…"}</span>
+          </div>
+          <div className="outcome-row">
+            <span>Revealed</span>
+            <span className="v">{bidStats?.revealed ?? "…"}</span>
+          </div>
+          <div className="outcome-row">
+            <span>Winner</span>
+            <span className="v">
+              {bidStats?.winnerSelected
+                ? "✓ selected"
+                : revealWindowClosed
+                  ? "pending — click Run draw"
+                  : "—"}
+            </span>
+          </div>
         </div>
       </div>
       <BidPanel

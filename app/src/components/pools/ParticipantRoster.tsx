@@ -17,7 +17,10 @@ interface RosterRow {
   isSuspended: boolean;
   hasWon: boolean;
   winMonth: number;
-  collateralPosted: BN;
+  /** Currently locked collateral (decreases as winner pays each post-win month). */
+  collateralLocked: BN;
+  /** Initial collateral posted at win time — used for tooltip / display continuity. */
+  collateralInitial: BN;
 }
 
 function decodeRow(
@@ -32,7 +35,8 @@ function decodeRow(
     isSuspended: Boolean(raw.isSuspended),
     hasWon: Boolean(raw.hasWon),
     winMonth: (raw.winMonth as number) ?? 0,
-    collateralPosted: (raw.collateralPosted as BN) ?? new BN(0),
+    collateralLocked: (raw.collateralLocked as BN) ?? new BN(0),
+    collateralInitial: (raw.collateralInitial as BN) ?? new BN(0),
   };
 }
 
@@ -126,10 +130,12 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
             <tr>
               <th></th>
               <th>Wallet</th>
-              <th className="num">Collateral</th>
+              <th className="num" title="Collateral is posted by a member only after they WIN a month — to secure the remaining contributions they owe. Non-winners show $0 by design.">
+                Collateral (winner)
+              </th>
               <th>Paid months</th>
               <th>Status</th>
-              <th className="num">Win</th>
+              <th className="num">Won</th>
             </tr>
           </thead>
           <tbody>
@@ -174,7 +180,8 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
             )}
             {rows?.map((r, i) => {
               const me = publicKey?.toBase58() === r.user.toBase58();
-              const collateralHuman = Number(microUsdcToHuman(r.collateralPosted));
+              const collateralHuman = Number(microUsdcToHuman(r.collateralLocked));
+              const collateralInitialHuman = Number(microUsdcToHuman(r.collateralInitial));
               const status = r.isDefaulted
                 ? { label: "Default", cls: "default" }
                 : r.isSuspended
@@ -197,7 +204,16 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
                       </div>
                     </div>
                   </td>
-                  <td className="num">${collateralHuman.toLocaleString()}</td>
+                  <td
+                    className="num"
+                    title={
+                      r.hasWon
+                        ? `Initial: $${collateralInitialHuman.toLocaleString()} · Locked now: $${collateralHuman.toLocaleString()}`
+                        : "Posted only after winning"
+                    }
+                  >
+                    {r.hasWon ? `$${collateralHuman.toLocaleString()}` : "—"}
+                  </td>
                   <td>
                     <PaidMonthsBar
                       bitmap={r.paidMonthsBitmap}
@@ -205,8 +221,16 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
                     />
                   </td>
                   <td>
-                    {me && <span className="badge you">You</span>}
-                    {!me && <span className={`badge ${status.cls}`}>{status.label}</span>}
+                    {me ? (
+                      <>
+                        <span className="badge you">You</span>{" "}
+                        <span className={`badge ${status.cls}`} style={{ marginLeft: 4 }}>
+                          {status.label}
+                        </span>
+                      </>
+                    ) : (
+                      <span className={`badge ${status.cls}`}>{status.label}</span>
+                    )}
                   </td>
                   <td className="num">
                     {r.hasWon

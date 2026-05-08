@@ -223,6 +223,31 @@ body::after {
 .pill.live .dot { background: var(--acc); box-shadow: 0 0 8px var(--acc); animation: blink 1.4s ease-in-out infinite; }
 @keyframes blink { 50% { opacity: 0.3; } }
 
+.usdc-balance {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--fg-3);
+}
+.usdc-balance-label {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-4);
+}
+.usdc-balance-value {
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+@media (max-width: 720px) { .usdc-balance .usdc-balance-label { display: none; } }
+@media (max-width: 560px) { .usdc-balance { display: none; } }
+
 .faucet-button {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 7px 12px;
