@@ -501,9 +501,13 @@ pub fn handle_join_pool<'info>(
         pool.bid_window_ends_at = now
             .checked_add(pool.bid_window_seconds)
             .ok_or(CoreError::MathOverflow)?;
+        // Same scaling as advance_month: reveal = max(60s, bid/2).
+        // For demo pools with short months this keeps the auction inside
+        // the month; for production-default 48h bid this gives 24h reveal.
+        let reveal_secs = (pool.bid_window_seconds / 2).max(60);
         pool.reveal_window_ends_at = pool
             .bid_window_ends_at
-            .checked_add(crate::constants::DEFAULT_REVEAL_WINDOW_SECS)
+            .checked_add(reveal_secs)
             .ok_or(CoreError::MathOverflow)?;
 
         emit!(PoolStarted {

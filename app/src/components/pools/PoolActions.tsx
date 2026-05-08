@@ -124,10 +124,24 @@ export function PoolActions({ pool, participant, monthState, onRefresh }: Props)
     participant && currentMonth > 0
       ? hasPaidMonth(participant, currentMonth)
       : false;
+  // Winner status is on `pool.winners[m-1]`, NOT on `participant.hasWon`
+  // (that flag only flips INSIDE claim_winning). After select_winner runs
+  // we have a winner pubkey + selectedAt > 0 but the winning participant
+  // hasn't claimed yet — that's the window where we want to show the
+  // "Claim winnings" button.
+  const monthWinner = currentMonth > 0
+    ? ((pool.raw as { winners?: Array<{
+        winner: { toBase58: () => string };
+        selectedAt: { gtn?: (n: number) => boolean };
+        claimed: boolean;
+      }> }).winners?.[currentMonth - 1])
+    : undefined;
+  const winnerSelectedThisMonth =
+    !!monthWinner?.selectedAt && monthWinner.selectedAt.gtn?.(0);
   const isWinner =
-    participant?.hasWon &&
-    participant.winMonth === currentMonth &&
-    !(participant.raw as { claimed?: boolean })?.claimed;
+    winnerSelectedThisMonth &&
+    !monthWinner?.claimed &&
+    monthWinner?.winner.toBase58() === publicKey?.toBase58();
 
   if (isComplete) {
     return (
@@ -177,28 +191,56 @@ export function PoolActions({ pool, participant, monthState, onRefresh }: Props)
     );
   }
 
+  // Surface "you won, claim now" messaging even before the button —
+  // helps demo participants who watch the toast disappear and don't
+  // know what to do next.
+  const banner = isWinner
+    ? `🎉 You won month ${currentMonth}! Click "Claim winnings" to post collateral and receive the pot.`
+    : winnerSelectedThisMonth && !monthWinner?.claimed
+      ? `Winner of month ${currentMonth}: ${monthWinner!.winner.toBase58().slice(0, 8)}… — waiting on them to claim before the month can advance.`
+      : null;
+
   return (
-    <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
-      <button
-        className="btn primary lg"
-        disabled={paidThisMonth || busy !== null}
-        onClick={() => run("contribute", "Sending contribution", submitContribute)}
-      >
-        {paidThisMonth
-          ? `✓ Paid month ${currentMonth}`
-          : busy === "contribute"
-            ? "Signing…"
-            : `▶ Pay month ${currentMonth}`}
-      </button>
-      {isWinner && (
+    <>
+      {banner && (
+        <div
+          style={{
+            marginBottom: 14,
+            padding: "10px 14px",
+            border: `1px solid ${isWinner ? "var(--acc)" : "var(--line-2)"}`,
+            background: isWinner ? "var(--acc-tint)" : "var(--bg-2)",
+            color: isWinner ? "var(--acc)" : "var(--fg-2)",
+            borderRadius: 3,
+            fontFamily: "var(--mono)",
+            fontSize: 12.5,
+            lineHeight: 1.5,
+          }}
+        >
+          {banner}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
         <button
           className="btn primary lg"
-          disabled={busy !== null}
-          onClick={() => run("claim", "Claiming winnings", submitClaim)}
+          disabled={paidThisMonth || busy !== null}
+          onClick={() => run("contribute", "Sending contribution", submitContribute)}
         >
-          {busy === "claim" ? "Claiming…" : "✶ Claim winnings"}
+          {paidThisMonth
+            ? `✓ Paid month ${currentMonth}`
+            : busy === "contribute"
+              ? "Signing…"
+              : `▶ Pay month ${currentMonth}`}
         </button>
-      )}
-    </div>
+        {isWinner && (
+          <button
+            className="btn primary lg"
+            disabled={busy !== null}
+            onClick={() => run("claim", "Claiming winnings", submitClaim)}
+          >
+            {busy === "claim" ? "Claiming…" : "✶ Claim winnings"}
+          </button>
+        )}
+      </div>
+    </>
   );
 }
