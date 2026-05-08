@@ -147,4 +147,14 @@ pub mod poolver_core {
     pub fn liquidate_default(ctx: Context<LiquidateDefault>) -> Result<()> {
         handle_liquidate_default(ctx)
     }
+
+    /// Permissionless. Slash the contribution_amount from a participant's
+    /// collateral when they failed to pay this month (callable as soon
+    /// as the month duration has elapsed). Forwards the slashed amount
+    /// into the yield adapter so the pot stays whole.
+    pub fn slash_unpaid<'info>(
+        ctx: Context<'info, SlashUnpaid<'info>>,
+    ) -> Result<()> {
+        handle_slash_unpaid(ctx)
+    }
 }

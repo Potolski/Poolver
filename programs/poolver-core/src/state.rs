@@ -436,7 +436,14 @@ pub struct UserReputation {
     pub kyc_attestation: Pubkey,
     pub last_kyc_at: i64,
     pub bump: u8,
-    pub _reserved: [u8; 32],
+    /// Number of (pool, month) pairs where this user was slashed for
+    /// missing the contribution. Soft signal — bumps the user into the
+    /// "yellow" tier without flipping them to "red" (which is reserved
+    /// for full defaults). Carved out of the original `_reserved: [u8; 32]`
+    /// budget; existing on-chain accounts read 0 here, which matches the
+    /// "never been slashed" case.
+    pub months_missed_lifetime: u32,
+    pub _reserved: [u8; 28],
 }
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -332,3 +332,19 @@ pub struct YieldDistributed {
     pub total_yield_distributed_after: u64,
     pub timestamp: i64,
 }
+
+/// Emitted by `slash_unpaid`: a participant who failed to contribute
+/// for `month` had `slash_amount` deducted from their collateral and
+/// forwarded into the yield adapter so the monthly pot stays whole.
+/// `is_defaulted_after` is true iff the slash exhausted their
+/// collateral (i.e. they're now unable to back further months).
+#[event]
+pub struct ParticipantSlashed {
+    pub pool: Pubkey,
+    pub user: Pubkey,
+    pub month: u8,
+    pub slash_amount: u64,
+    pub collateral_locked_after: u64,
+    pub is_defaulted_after: bool,
+    pub timestamp: i64,
+}

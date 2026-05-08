@@ -253,31 +253,11 @@ fn cpi_reserve_deposit<'info>(
 // fixed accounts that this helper previously took. Tier 1 callers
 // append `adapter_ktoken_vault` to `remaining_accounts[0]`.
 
-#[inline(never)]
-fn cpi_collateral_release<'info>(
-    token_program: AccountInfo<'info>,
-    collateral_vault: AccountInfo<'info>,
-    user_usdc: AccountInfo<'info>,
-    pool_key: &Pubkey,
-    collateral_vault_bump: u8,
-    amount: u64,
-) -> Result<()> {
-    let seeds: &[&[&[u8]]] = &[&[
-        COLLATERAL_VAULT_SEED,
-        pool_key.as_ref(),
-        &[collateral_vault_bump],
-    ]];
-    let cpi_ctx = CpiContext::new_with_signer(
-        token_program.key(),
-        Transfer {
-            from: collateral_vault.clone(),
-            to: user_usdc,
-            authority: collateral_vault,
-        },
-        seeds,
-    );
-    token::transfer(cpi_ctx, amount)
-}
+// Post-win collateral release was removed in favor of "collateral
+// stays locked until refund_collateral / slash_unpaid". The helper
+// previously here moved USDC from collateral_vault → user_usdc. If
+// the staircase release ever returns, restore from git history.
+
 
 pub fn handle_contribute<'info>(
     ctx: Context<'info, Contribute<'info>>,
@@ -466,7 +446,10 @@ pub fn handle_contribute<'info>(
     let pool_key = ctx.accounts.pool.key();
     let pool_usdc_vault_bump = ctx.bumps.pool_usdc_vault;
     let core_invoker_bump = ctx.bumps.core_invoker;
-    let collateral_vault_bump = ctx.bumps.collateral_vault;
+    // Was used by the old post-win collateral release; kept reachable
+    // (via `_` prefix) so the Accounts struct shape doesn't change for
+    // SDK callers. Slashing happens in `slash_unpaid`, not here.
+    let _collateral_vault_bump = ctx.bumps.collateral_vault;
 
     // ───── 5. user → pool_usdc_vault ───────────────────────────────────
     if actual_paid_by_user > 0 {
@@ -531,46 +514,22 @@ pub fn handle_contribute<'info>(
         )?;
     }
 
-    // ───── 9. Post-win collateral release (spec §4 schedule) ───────────
-    let mut collateral_released: u64 = 0;
-    {
-        let participant = &ctx.accounts.participant;
-        if participant.has_won
-            && participant.collateral_locked > 0
-            && participant.win_month >= 1
-            && participant.win_month < Pool::TOTAL_MONTHS
-            && current_month > participant.win_month
-        {
-            let win_month = participant.win_month;
-            let months_remaining_at_win = Pool::TOTAL_MONTHS
-                .saturating_sub(win_month) as u64;
-            let release_per_month = participant.collateral_release_per_month;
-
-            // Final-month true-up: release whatever is left so total
-            // released never exceeds `collateral_initial` and the locked
-            // balance lands at 0 on the last on-time payment.
-            let is_final_payment = months_remaining_at_win > 0
-                && current_month
-                    .saturating_sub(win_month) as u64
-                    >= months_remaining_at_win;
-
-            collateral_released = if is_final_payment {
-                participant.collateral_locked
-            } else {
-                release_per_month.min(participant.collateral_locked)
-            };
-        }
-    }
-    if collateral_released > 0 {
-        cpi_collateral_release(
-            ctx.accounts.token_program.to_account_info(),
-            ctx.accounts.collateral_vault.to_account_info(),
-            ctx.accounts.user_usdc.to_account_info(),
-            &pool_key,
-            collateral_vault_bump,
-            collateral_released,
-        )?;
-    }
+    // ───── 9. Collateral stays locked until pool completion ─────────────
+    //
+    // V1 model: every joiner posts full-pool collateral up front, and it
+    // STAYS LOCKED through the pool's life regardless of whether the user
+    // wins, claims, or just keeps contributing. The only ways collateral
+    // leaves the vault are:
+    //   - `slash_unpaid`: a missed month → the contribution_amount is
+    //     pulled from collateral and forwarded to the pot.
+    //   - `refund_collateral`: pool is complete → whatever's left of
+    //     `collateral_locked` returns to the user.
+    //
+    // The previous post-win staircase release (where winners' collateral
+    // unlocked one slice per month they paid post-win) was removed
+    // because it created a confusing "your collateral is dropping but
+    // you didn't do anything wrong" UX after a claim.
+    let collateral_released: u64 = 0;
 
     // ───── 10. State updates (after token movements succeed) ───────────
     let participant = &mut ctx.accounts.participant;

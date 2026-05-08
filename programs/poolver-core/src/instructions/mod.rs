@@ -14,6 +14,7 @@ pub mod liquidate_default;
 pub mod mark_late_payment;
 pub mod reveal_bid;
 pub mod select_winner;
+pub mod slash_unpaid;
 pub mod suspend_participant;
 
 #[cfg(feature = "mock-kyc")]
@@ -35,6 +36,7 @@ pub use liquidate_default::*;
 pub use mark_late_payment::*;
 pub use reveal_bid::*;
 pub use select_winner::*;
+pub use slash_unpaid::*;
 pub use suspend_participant::*;
 
 #[cfg(feature = "mock-kyc")]

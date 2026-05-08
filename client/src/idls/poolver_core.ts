@@ -3024,6 +3024,249 @@ export type PoolverCore = {
       "args": []
     },
     {
+      "name": "slashUnpaid",
+      "docs": [
+        "Permissionless. Slash the contribution_amount from a participant's",
+        "collateral when they failed to pay this month (callable as soon",
+        "as the month duration has elapsed). Forwards the slashed amount",
+        "into the yield adapter so the pot stays whole."
+      ],
+      "discriminator": [
+        157,
+        6,
+        181,
+        187,
+        102,
+        173,
+        238,
+        79
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "docs": [
+            "Permissionless caller — pays tx fee."
+          ],
+          "signer": true
+        },
+        {
+          "name": "protocolConfig",
+          "docs": [
+            "Read-only — paused gate."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  116,
+                  111,
+                  99,
+                  111,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true
+        },
+        {
+          "name": "participant",
+          "docs": [
+            "The participant being slashed."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  114,
+                  116,
+                  105,
+                  99,
+                  105,
+                  112,
+                  97,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "participant.user",
+                "account": "participant"
+              }
+            ]
+          }
+        },
+        {
+          "name": "userReputation",
+          "docs": [
+            "The participant's reputation account — bumped on slash."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  117,
+                  116,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "participant.user",
+                "account": "participant"
+              }
+            ]
+          }
+        },
+        {
+          "name": "collateralVault",
+          "docs": [
+            "Collateral vault — source of the slashed funds."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  108,
+                  97,
+                  116,
+                  101,
+                  114,
+                  97,
+                  108,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "poolUsdcVault",
+          "docs": [
+            "Pool USDC vault — transit account."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108,
+                  95,
+                  117,
+                  115,
+                  100,
+                  99,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "coreInvoker",
+          "docs": [
+            "the adapter CPI alongside `pool_usdc_vault`."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  114,
+                  101,
+                  95,
+                  105,
+                  110,
+                  118,
+                  111,
+                  107,
+                  101,
+                  114
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "adapterState",
+          "writable": true
+        },
+        {
+          "name": "adapterUsdcVault",
+          "writable": true
+        },
+        {
+          "name": "yieldAdapterProgram"
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "suspendParticipant",
       "discriminator": [
         105,
@@ -3342,6 +3585,19 @@ export type PoolverCore = {
         181,
         24,
         253
+      ]
+    },
+    {
+      "name": "participantSlashed",
+      "discriminator": [
+        165,
+        133,
+        158,
+        255,
+        205,
+        241,
+        126,
+        67
       ]
     },
     {
@@ -3716,6 +3972,16 @@ export type PoolverCore = {
       "code": 6042,
       "name": "reputationDefaulted",
       "msg": "Reputation gate: user has prior defaults; new pool joins blocked (Q-11)"
+    },
+    {
+      "code": 6043,
+      "name": "monthNotEnded",
+      "msg": "Current month duration has not elapsed; slash_unpaid rejected"
+    },
+    {
+      "code": 6044,
+      "name": "nothingToSlash",
+      "msg": "Participant has nothing to slash (collateral already drained)"
     }
   ],
   "types": [
@@ -4599,6 +4865,49 @@ export type PoolverCore = {
       }
     },
     {
+      "name": "participantSlashed",
+      "docs": [
+        "Emitted by `slash_unpaid`: a participant who failed to contribute",
+        "for `month` had `slash_amount` deducted from their collateral and",
+        "forwarded into the yield adapter so the monthly pot stays whole.",
+        "`is_defaulted_after` is true iff the slash exhausted their",
+        "collateral (i.e. they're now unable to back further months)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "month",
+            "type": "u8"
+          },
+          {
+            "name": "slashAmount",
+            "type": "u64"
+          },
+          {
+            "name": "collateralLockedAfter",
+            "type": "u64"
+          },
+          {
+            "name": "isDefaultedAfter",
+            "type": "bool"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
       "name": "participantSuspended",
       "docs": [
         "Emitted by `suspend_participant` once day 6 of the unpaid window",
@@ -5184,11 +5493,23 @@ export type PoolverCore = {
             "type": "u8"
           },
           {
+            "name": "monthsMissedLifetime",
+            "docs": [
+              "Number of (pool, month) pairs where this user was slashed for",
+              "missing the contribution. Soft signal — bumps the user into the",
+              "\"yellow\" tier without flipping them to \"red\" (which is reserved",
+              "for full defaults). Carved out of the original `_reserved: [u8; 32]`",
+              "budget; existing on-chain accounts read 0 here, which matches the",
+              "\"never been slashed\" case."
+            ],
+            "type": "u32"
+          },
+          {
             "name": "reserved",
             "type": {
               "array": [
                 "u8",
-                32
+                28
               ]
             }
           }

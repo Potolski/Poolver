@@ -113,4 +113,10 @@ pub enum CoreError {
     NotLate,
     #[msg("Reputation gate: user has prior defaults; new pool joins blocked (Q-11)")]
     ReputationDefaulted,
+
+    // ───── Slashing (post-month enforcement) ───────────────────────────
+    #[msg("Current month duration has not elapsed; slash_unpaid rejected")]
+    MonthNotEnded,
+    #[msg("Participant has nothing to slash (collateral already drained)")]
+    NothingToSlash,
 }
