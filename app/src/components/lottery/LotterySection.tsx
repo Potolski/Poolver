@@ -286,30 +286,6 @@ export function LotterySection({
             <span>Tie-break</span>
             <span className="v">VRF lottery</span>
           </div>
-          <div className="outcome-row">
-            <span>Reveal nonce</span>
-            <span className="v">stored in IndexedDB</span>
-          </div>
-          <hr className="rule-dashed" />
-          <div className="outcome-label" style={{ marginBottom: 8 }}>
-            AUCTION FLOW
-          </div>
-          <div className="outcome-row">
-            <span>Step 1</span>
-            <span className="v">commit (sealed hash + 1% stake)</span>
-          </div>
-          <div className="outcome-row">
-            <span>Step 2</span>
-            <span className="v">reveal (after bid window closes)</span>
-          </div>
-          <div className="outcome-row">
-            <span>Step 3</span>
-            <span className="v">select_winner (anyone, after reveal)</span>
-          </div>
-          <div className="outcome-row">
-            <span>Step 4</span>
-            <span className="v">claim (winner posts collateral, takes pot)</span>
-          </div>
           <hr className="rule-dashed" />
           <div className="outcome-label" style={{ marginBottom: 8 }}>
             MONTH {String(month).padStart(2, "0")} BIDS
