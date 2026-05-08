@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { PoolverMark } from "@/components/brand/PoolverLogo";
 import { WalletButton } from "@/components/wallet/WalletButton";
+import { FaucetButton } from "@/components/wallet/FaucetButton";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 const NAV = [
@@ -61,6 +62,7 @@ export function TopBar() {
           <span className="dot" />
           Solana · Devnet
         </span>
+        <FaucetButton />
         <ThemeToggle />
         <WalletButton />
         <button

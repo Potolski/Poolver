@@ -223,6 +223,26 @@ body::after {
 .pill.live .dot { background: var(--acc); box-shadow: 0 0 8px var(--acc); animation: blink 1.4s ease-in-out infinite; }
 @keyframes blink { 50% { opacity: 0.3; } }
 
+.faucet-button {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: 2px;
+  color: var(--fg);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.faucet-button:hover { border-color: var(--acc); color: var(--acc); }
+.faucet-button:disabled { opacity: 0.6; cursor: wait; }
+.faucet-icon { font-size: 13px; line-height: 1; }
+.faucet-label { letter-spacing: 0.1em; }
+@media (max-width: 560px) { .faucet-button .faucet-label { display: none; } }
+
 .theme-toggle {
   display: inline-flex; align-items: center; justify-content: center;
   width: 28px; height: 28px;

@@ -182,11 +182,11 @@ export function LotterySection({
             <span className="v">stored in IndexedDB</span>
           </div>
           <pre className="ascii" style={{ marginTop: 16 }}>
-{`   ┌─ AUCTION FLOW ────────┐
-   │  commit  →  reveal    │
-   │  reveal  →  select    │
-   │  select  →  claim     │
-   └───────────────────────┘`}
+{`   ┌── AUCTION FLOW ──────┐
+   │  commit  ->  reveal  │
+   │  reveal  ->  select  │
+   │  select  ->  claim   │
+   └──────────────────────┘`}
           </pre>
         </div>
       </div>
