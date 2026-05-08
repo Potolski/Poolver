@@ -1,6 +1,7 @@
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 
 import { PoolverClient } from "../poolver";
+import { TierName } from "../constants";
 import {
   buildSelectWinnerAccounts,
   buildSelectWinnerRemainingAccounts,
@@ -8,6 +9,9 @@ import {
 
 export interface SelectWinnerArgs {
   pool: PublicKey;
+  /** Pool tier — needed to derive the matching reserve PDAs (forfeit
+   *  destination for unrevealed bid stakes). */
+  tier: TierName;
   /** Current month being resolved (1..=12). */
   month: number;
   /**
@@ -27,7 +31,7 @@ export async function selectWinnerIx(
   client: PoolverClient,
   args: SelectWinnerArgs
 ): Promise<TransactionInstruction> {
-  const accounts = buildSelectWinnerAccounts(client.authority, args.pool);
+  const accounts = buildSelectWinnerAccounts(client.authority, args.pool, args.tier);
   const remaining = buildSelectWinnerRemainingAccounts(
     args.pool,
     args.month,

@@ -30,54 +30,61 @@ export function usePool(address: string | undefined): UsePoolResult {
   const [loading, setLoading] = useState<boolean>(Boolean(address));
   const [error, setError] = useState<Error | null>(null);
 
-  const load = useCallback(async () => {
-    if (!address) {
-      setPool(null);
-      setParticipant(null);
-      setMonthState(null);
-      setLoading(false);
-      return;
-    }
-    let pubkey: PublicKey;
-    try {
-      pubkey = new PublicKey(address);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error("invalid pool address"));
-      setLoading(false);
-      return;
-    }
+  // `silent` skips the loading-spinner state, so background polls don't
+  // make the whole page flash through its `if (loading) return …` branch
+  // every 8 seconds. Initial load + manual refetch still flip loading
+  // for the user-visible spinner.
+  const load = useCallback(
+    async (silent = false) => {
+      if (!address) {
+        setPool(null);
+        setParticipant(null);
+        setMonthState(null);
+        setLoading(false);
+        return;
+      }
+      let pubkey: PublicKey;
+      try {
+        pubkey = new PublicKey(address);
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error("invalid pool address"));
+        setLoading(false);
+        return;
+      }
 
-    setLoading(true);
-    setError(null);
-    try {
-      const [poolView, participantView] = await Promise.all([
-        fetchPool(client, pubkey),
-        publicKey
-          ? fetchParticipant(client, pubkey, publicKey)
-          : Promise.resolve(null),
-      ]);
-      setPool(poolView);
-      setParticipant(participantView);
-      setMonthState(
-        poolView ? computeMonthState(poolView, Math.floor(Date.now() / 1000)) : null
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error("failed to load pool"));
-    } finally {
-      setLoading(false);
-    }
-  }, [address, client, publicKey]);
+      if (!silent) setLoading(true);
+      setError(null);
+      try {
+        const [poolView, participantView] = await Promise.all([
+          fetchPool(client, pubkey),
+          publicKey
+            ? fetchParticipant(client, pubkey, publicKey)
+            : Promise.resolve(null),
+        ]);
+        setPool(poolView);
+        setParticipant(participantView);
+        setMonthState(
+          poolView ? computeMonthState(poolView, Math.floor(Date.now() / 1000)) : null
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error("failed to load pool"));
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [address, client, publicKey]
+  );
 
   useEffect(() => {
-    void load();
-    // Poll on-chain state every 8s so the UI reflects monthly
-    // contributions, joins, advances, and winner selections without
-    // requiring the user to refresh manually.
+    void load(false); // initial load — show spinner
     const id = setInterval(() => {
-      void load();
+      void load(true); // background poll — silent
     }, 8_000);
     return () => clearInterval(id);
   }, [load]);
 
-  return { pool, participant, monthState, loading, error, refetch: load };
+  // Public refetch (called after on-chain actions) shows the spinner.
+  const refetch = useCallback(() => load(false), [load]);
+
+  return { pool, participant, monthState, loading, error, refetch };
 }

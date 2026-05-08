@@ -149,6 +149,7 @@ export function LotterySection({
     try {
       const ix = await selectWinnerIx(client, {
         pool: pool.publicKey,
+        tier: pool.tier,
         month,
         revealedBidders: bidStats.revealedBidders,
       });

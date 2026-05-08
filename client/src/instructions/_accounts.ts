@@ -360,16 +360,37 @@ export function buildRevealBidAccounts(
 
 export interface SelectWinnerAccounts {
   caller: PublicKey;
-  pool: PublicKey;
   protocolConfig: PublicKey;
+  pool: PublicKey;
+  bidStakeVault: PublicKey;
+  coreInvoker: PublicKey;
+  reserveFund: PublicKey;
+  reserveUsdcVault: PublicKey;
+  reserveProgram: PublicKey;
+  tokenProgram: PublicKey;
 }
 
 export function buildSelectWinnerAccounts(
   caller: PublicKey,
-  pool: PublicKey
+  pool: PublicKey,
+  tier: TierName
 ): SelectWinnerAccounts {
   const [protocolConfig] = findProtocolConfig();
-  return { caller, pool, protocolConfig };
+  const [bidStakeVault] = findBidStakeVault(pool);
+  const [coreInvoker] = findCoreInvoker();
+  const [reserveFund] = findReserveFund(tier);
+  const [reserveUsdcVault] = findReserveVault(tier);
+  return {
+    caller,
+    protocolConfig,
+    pool,
+    bidStakeVault,
+    coreInvoker,
+    reserveFund,
+    reserveUsdcVault,
+    reserveProgram: POOLVER_RESERVE_PROGRAM_ID,
+    tokenProgram: TOKEN_PROGRAM_ID,
+  };
 }
 
 /**
