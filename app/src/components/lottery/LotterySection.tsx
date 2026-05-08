@@ -5,10 +5,8 @@ import { ComputeBudgetProgram, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { toast } from "sonner";
 import {
-  ADMIN_PUBKEY_DEVNET,
   POOLVER_ALT_DEVNET,
   advanceMonthIx,
-  adminSkipPhaseIx,
   selectWinnerIx,
   type ParticipantView,
   type PoolMonthState,
@@ -50,11 +48,8 @@ export function LotterySection({
   onRefresh,
 }: Props) {
   const { client, connected, publicKey } = usePoolver();
-  const isAdmin =
-    connected && publicKey?.toBase58() === ADMIN_PUBKEY_DEVNET.toBase58();
   const [advancing, setAdvancing] = useState(false);
   const [selecting, setSelecting] = useState(false);
-  const [skipping, setSkipping] = useState(false);
   const [bidStats, setBidStats] = useState<{
     committed: number;
     revealed: number;
@@ -77,7 +72,14 @@ export function LotterySection({
   // MonthTimeline + ParticipantRoster already read winners.
   const winners =
     ((pool.raw as {
-      winners?: Array<{ month: number; selectedAt: BN }>;
+      winners?: Array<{
+        month: number;
+        winner: PublicKey;
+        winningBid: BN;
+        netPayout: BN;
+        selectedAt: BN;
+        selectionMethod: { bid?: object; lottery?: object };
+      }>;
     }).winners) ?? [];
   const monthWinnerSelected =
     month > 0 && month <= winners.length
@@ -126,32 +128,6 @@ export function LotterySection({
       cancelled = true;
     };
   }, [client, pool.publicKey, month, pool.currentMonth]);
-
-  const handleSkip = async () => {
-    if (!isAdmin) {
-      toast.error("Admin only");
-      return;
-    }
-    setSkipping(true);
-    const toastId = toast.loading("Skipping phase…");
-    try {
-      const ix = await adminSkipPhaseIx(client, { pool: pool.publicKey });
-      const sig = await sendIxs(client, [ix]);
-      toast.success("Phase skipped", {
-        id: toastId,
-        description: `sig: ${sig.slice(0, 12)}…`,
-      });
-      await onRefresh();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast.error("Skip failed", {
-        id: toastId,
-        description: msg.slice(0, 200),
-      });
-    } finally {
-      setSkipping(false);
-    }
-  };
 
   const handleSelect = async () => {
     if (!connected) {
@@ -373,17 +349,6 @@ export function LotterySection({
                   month auto-advances after duration elapses
                 </span>
               )}
-              {isAdmin && month > 0 && !pool.isComplete && (
-                <button
-                  className="btn ghost"
-                  disabled={skipping}
-                  onClick={handleSkip}
-                  title="Admin: fast-forward this phase (bid window → reveal window → month-end). Devnet only."
-                  style={{ marginLeft: "auto" }}
-                >
-                  {skipping ? "Skipping…" : "⏩ Skip phase (admin)"}
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -434,6 +399,111 @@ export function LotterySection({
           </div>
         </div>
       </div>
+      {monthWinnerSelected && (() => {
+        const w = winners[month - 1];
+        const isBid = w?.selectionMethod && "bid" in w.selectionMethod;
+        return (
+          <div
+            className="card"
+            style={{
+              marginTop: 18,
+              padding: 18,
+              background: "var(--bg-1)",
+              border: "1px solid var(--line)",
+              fontFamily: "var(--mono)",
+              fontSize: 12,
+              color: "var(--fg-2)",
+              lineHeight: 1.7,
+            }}
+          >
+            <div
+              className="kicker"
+              style={{ marginBottom: 10, color: "var(--fg-3)" }}
+            >
+              AUDIT · MONTH {String(month).padStart(2, "0")} SELECTION
+            </div>
+            {isBid ? (
+              <>
+                <div>
+                  <b style={{ color: "var(--acc)" }}>Method:</b> sealed-bid
+                  auction (deterministic, no randomness involved).
+                </div>
+                <div style={{ marginTop: 6, color: "var(--fg-3)" }}>
+                  All bids were committed as a sha256 hash during the bid
+                  window, then revealed in the reveal window. The handler
+                  picks the highest revealed amount; ties are broken by
+                  the lexicographically smallest{" "}
+                  <code>sha256(pool ‖ month ‖ user)</code>. The full bid
+                  list and winner are public on-chain — verifiable from
+                  the Bid PDAs for this pool + month.
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <b style={{ color: "var(--acc)" }}>Method:</b> VRF lottery
+                  (no revealed bids → uniform random pick).
+                </div>
+                <div style={{ marginTop: 6, color: "var(--fg-3)" }}>
+                  Seed ={" "}
+                  <code>sha256(pool ‖ month_le ‖ slot)</code>. The slot is
+                  the Solana slot at draw time — public and immutable, but
+                  unpredictable to anyone trying to grind the candidate
+                  list (slots advance ~400ms apart). First 8 bytes of the
+                  seed → u64 → mod candidate_count → winner index.
+                </div>
+                <div style={{ marginTop: 6, color: "var(--fg-3)" }}>
+                  Candidate list is the on-chain{" "}
+                  <code>pool.participants</code> filtered for: not
+                  defaulted, not suspended, Full-KYC, no prior win. That
+                  filter and the seed inputs are all derivable from
+                  on-chain state, so anyone can reproduce the pick.
+                </div>
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: 10,
+                    border: "1px dashed var(--line-2)",
+                    borderRadius: 3,
+                    color: "var(--fg-4)",
+                    fontSize: 11,
+                  }}
+                >
+                  V1 uses a deterministic mock VRF for demo simplicity;
+                  production swaps in Switchboard On-Demand without any
+                  state-shape change (see select_winner.rs §SPEC-21).
+                </div>
+              </>
+            )}
+            <hr className="rule-dashed" style={{ margin: "12px 0" }} />
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 18,
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <div style={{ color: "var(--fg-4)", fontSize: 11 }}>
+                  Winner
+                </div>
+                <div style={{ color: "var(--fg-1)" }}>
+                  {w.winner.toBase58()}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: "var(--fg-4)", fontSize: 11 }}>
+                  Selected at
+                </div>
+                <div>
+                  {new Date(w.selectedAt.toNumber() * 1000).toISOString()}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       <BidPanel
         pool={pool}
         participant={participant}
