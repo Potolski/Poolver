@@ -173,9 +173,14 @@ pub fn handle_commit_bid(
         require!(!p.is_defaulted, CoreError::Defaulted);
         require!(!p.is_suspended, CoreError::Suspended);
         // INV-30: a prior winner cannot win twice. Spec §5.1: "user has
-        // not won yet". Surface as `AlreadyWon` so the UX can present
-        // the right message.
+        // not won yet". `participant.has_won` only flips at claim time —
+        // we ALSO check `pool.winners` directly so an unclaimed past
+        // winner can't sneak back into the bid pool.
         require!(!p.has_won, CoreError::AlreadyWon);
+        require!(
+            !ctx.accounts.pool.has_won_any_month(&ctx.accounts.user.key()),
+            CoreError::AlreadyWon
+        );
     }
 
     // ───── 4. Full-KYC gate (spec §5.1, INV-27) ────────────────────────

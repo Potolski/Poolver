@@ -3659,56 +3659,61 @@ export type PoolverCore = {
     },
     {
       "code": 6031,
+      "name": "winnerNotSelected",
+      "msg": "Cannot advance to the next month before drawing the current month's winner"
+    },
+    {
+      "code": 6032,
       "name": "notWinner",
       "msg": "Caller is not the selected winner for the current month"
     },
     {
-      "code": 6032,
+      "code": 6033,
       "name": "alreadyClaimed",
       "msg": "Winner has already claimed for this month"
     },
     {
-      "code": 6033,
+      "code": 6034,
       "name": "collateralInsufficient",
       "msg": "Winner does not have enough USDC to post the required collateral"
     },
     {
-      "code": 6034,
+      "code": 6035,
       "name": "gracePeriodNotElapsed",
       "msg": "Grace period has not elapsed yet (mark_late) or suspension threshold not reached"
     },
     {
-      "code": 6035,
+      "code": 6036,
       "name": "gracePeriodElapsed",
       "msg": "Grace period has elapsed; mark_late no longer accepted — call suspend_participant"
     },
     {
-      "code": 6036,
+      "code": 6037,
       "name": "defaultThresholdNotReached",
       "msg": "30-day default threshold has not been reached; liquidation rejected"
     },
     {
-      "code": 6037,
+      "code": 6038,
       "name": "alreadyLiquidated",
       "msg": "Participant has already been liquidated; double-liquidate rejected"
     },
     {
-      "code": 6038,
+      "code": 6039,
       "name": "alreadyMarkedLate",
       "msg": "Participant has already been marked late this month"
     },
     {
-      "code": 6039,
+      "code": 6040,
       "name": "notSuspended",
       "msg": "Participant must be suspended before liquidation (defense-in-depth)"
     },
     {
-      "code": 6040,
+      "code": 6041,
       "name": "notLate",
       "msg": "Participant is not late (already paid this month or no overdue contribution)"
     },
     {
-      "code": 6041,
+      "code": 6042,
       "name": "reputationDefaulted",
       "msg": "Reputation gate: user has prior defaults; new pool joins blocked (Q-11)"
     }

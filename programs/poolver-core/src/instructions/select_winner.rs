@@ -209,15 +209,23 @@ fn cpi_forfeit_to_reserve<'info>(
 // ─── Eligibility helpers ────────────────────────────────────────────────
 
 /// True iff `(participant, kyc)` is currently eligible to win:
-/// not-yet-won, not defaulted, not suspended, Full-KYC, unexpired,
-/// sanctions-clean.
+/// has not won any past month, not defaulted, not suspended, Full-KYC,
+/// unexpired, sanctions-clean.
+///
+/// Past-win check looks at `pool.winners` directly — `participant.has_won`
+/// only flips at claim time, so an unclaimed past winner would otherwise
+/// pass this filter and be eligible for re-selection.
 fn is_eligible(
+    pool: &Pool,
     participant: &Participant,
     kyc: &KycAttestation,
     user: &Pubkey,
     now: i64,
 ) -> bool {
     if participant.has_won || participant.is_defaulted || participant.is_suspended {
+        return false;
+    }
+    if pool.has_won_any_month(user) {
         return false;
     }
     require_full_kyc(kyc, user, now).is_ok()
@@ -477,7 +485,7 @@ pub fn handle_select_winner(ctx: Context<SelectWinner>) -> Result<()> {
             //         → forfeit stake (Q-3) — schedule CPI later
             //   (c) anything else (unrevealed but already refunded, or
             //       revealed but ineligible) → silently skip
-            if bid.revealed && is_eligible(&part, &kyc, &bid.user, now) {
+            if bid.revealed && is_eligible(&ctx.accounts.pool, &part, &kyc, &bid.user, now) {
                 bid_candidates.push(BidCandidate {
                     user: bid.user,
                     revealed_amount: bid.revealed_amount,
@@ -528,7 +536,7 @@ pub fn handle_select_winner(ctx: Context<SelectWinner>) -> Result<()> {
                 CoreError::SelectWinnerAccountsMalformed
             );
 
-            if is_eligible(&part, &kyc, &part.user, now) {
+            if is_eligible(&ctx.accounts.pool, &part, &kyc, &part.user, now) {
                 lottery_candidates.push(LotteryCandidate { user: part.user });
             }
 

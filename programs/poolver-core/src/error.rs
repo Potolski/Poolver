@@ -85,6 +85,8 @@ pub enum CoreError {
     NoEligibleParticipants,
     #[msg("`select_winner` `remaining_accounts` is malformed: expected (bid|participant) chunks")]
     SelectWinnerAccountsMalformed,
+    #[msg("Cannot advance to the next month before drawing the current month's winner")]
+    WinnerNotSelected,
 
     // ───── Claim winning (step 8) ───────────────────────────────────────
     #[msg("Caller is not the selected winner for the current month")]

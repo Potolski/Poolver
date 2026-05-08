@@ -57,6 +57,15 @@ pub fn handle_advance_month(ctx: Context<AdvanceMonth>) -> Result<()> {
     // winner has claimed (or the 24h claim window expired).
     require!(now >= month_end, CoreError::MonthDurationNotElapsed);
 
+    // INV "Single winner per month": cannot advance until the current
+    // month's winner is drawn. `MonthWinner::default()` has
+    // `selected_at == 0`; non-zero means `select_winner` ran.
+    let m_idx = (pool.current_month as usize) - 1;
+    require!(
+        pool.winners[m_idx].selected_at != 0,
+        CoreError::WinnerNotSelected
+    );
+
     let next_month = pool
         .current_month
         .checked_add(1)

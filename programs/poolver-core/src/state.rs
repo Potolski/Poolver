@@ -273,6 +273,22 @@ impl Pool {
         let end = started.saturating_add(self.month_duration_seconds);
         now >= started && now < end
     }
+
+    /// `true` if `user` has been selected as the winner of any past or
+    /// current month, regardless of whether they've claimed yet. Used to
+    /// gate commit_bid and select_winner candidate filtering — a winner
+    /// is excluded from future selections the moment select_winner runs,
+    /// not after claim_winning. (`Participant.has_won` only flips at
+    /// claim time; relying on it would let an unclaimed winner win
+    /// again, which the user explicitly does not want.)
+    pub fn has_won_any_month(&self, user: &Pubkey) -> bool {
+        for slot in self.winners.iter() {
+            if slot.month != 0 && slot.selected_at != 0 && &slot.winner == user {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
