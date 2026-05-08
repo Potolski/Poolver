@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "TypeScript SDK for Poolver V1 — on-chain rotating savings + credit (consórcio / ROSCA) protocol on Solana.",
   "license": "ISC",
+  "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist", "src"],

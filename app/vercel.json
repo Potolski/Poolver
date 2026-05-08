@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd .. && yarn install --frozen-lockfile && yarn workspace @poolver/client build"
+}
