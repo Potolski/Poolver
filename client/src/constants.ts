@@ -42,6 +42,17 @@ export const USDC_MINT_DEVNET_DEFAULT = new PublicKey(
   "B6dnuZtKH7FsSK6tySfWkk6ReW2LdKpmnfGAoMKsv8w8"
 );
 
+// Devnet admin / deploy wallet. Used as the gate for admin-only
+// instructions (admin_close_protocol, mock_issue_kyc, admin_skip_phase).
+// In production this is replaced by a multisig (Squads); the SDK only
+// uses it for client-side UI gating ("show admin button if connected
+// wallet matches this pubkey"). The on-chain enforcement lives in the
+// `has_one = admin` / `protocol_config.admin == admin.key()` constraints
+// on each admin instruction.
+export const ADMIN_PUBKEY_DEVNET = new PublicKey(
+  "FFwSGSnHwBkJve7dYhdKcq2JtpMxmA2rT7fJ9i2zxNFq"
+);
+
 // ─────────────────────────── PDA seeds (core) ─────────────────────────
 // Mirror of programs/poolver-core/src/constants.rs.
 

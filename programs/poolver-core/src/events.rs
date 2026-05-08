@@ -31,6 +31,17 @@ pub struct ProtocolClosed {
     pub timestamp: i64,
 }
 
+/// Admin fast-forwarded a phase via `admin_skip_phase`. Devnet only;
+/// `phase` matches the `SkippedPhase` enum (0 = bid window, 1 = reveal
+/// window, 2 = month duration).
+#[event]
+pub struct PhaseSkipped {
+    pub pool: Pubkey,
+    pub month: u8,
+    pub phase: u8,
+    pub timestamp: i64,
+}
+
 #[event]
 pub struct KycAttestationIssued {
     pub user: Pubkey,

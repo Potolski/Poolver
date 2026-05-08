@@ -44,6 +44,13 @@ pub mod poolver_core {
         handle_admin_close_protocol(ctx)
     }
 
+    // Admin-only fast-forward of the pool's current phase. Devnet/dev
+    // convenience — bypasses the on-chain time check by mutating the
+    // window endpoints. Does NOT bypass any other invariant.
+    pub fn admin_skip_phase(ctx: Context<AdminSkipPhase>) -> Result<()> {
+        handle_admin_skip_phase(ctx)
+    }
+
     // MOCK_KYC: V1 only — replaced in production by `issue_kyc_attestation`
     // signed by `protocol_config.kyc_oracle`. Building with
     // `--no-default-features` drops this entry from the program dispatch

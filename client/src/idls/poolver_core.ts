@@ -122,6 +122,80 @@ export type PoolverCore = {
       "args": []
     },
     {
+      "name": "adminSkipPhase",
+      "discriminator": [
+        67,
+        117,
+        70,
+        195,
+        210,
+        64,
+        92,
+        180
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true
+        },
+        {
+          "name": "protocolConfig",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  116,
+                  111,
+                  99,
+                  111,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.creator",
+                "account": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.pool_id",
+                "account": "pool"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "advanceMonth",
       "discriminator": [
         221,
@@ -3135,6 +3209,19 @@ export type PoolverCore = {
       ]
     },
     {
+      "name": "phaseSkipped",
+      "discriminator": [
+        84,
+        238,
+        24,
+        165,
+        222,
+        212,
+        37,
+        246
+      ]
+    },
+    {
       "name": "poolCompleted",
       "discriminator": [
         99,
@@ -4351,6 +4438,35 @@ export type PoolverCore = {
           },
           {
             "name": "month",
+            "type": "u8"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "phaseSkipped",
+      "docs": [
+        "Admin fast-forwarded a phase via `admin_skip_phase`. Devnet only;",
+        "`phase` matches the `SkippedPhase` enum (0 = bid window, 1 = reveal",
+        "window, 2 = month duration)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "month",
+            "type": "u8"
+          },
+          {
+            "name": "phase",
             "type": "u8"
           },
           {

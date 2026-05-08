@@ -1,4 +1,5 @@
 pub mod admin_close_protocol;
+pub mod admin_skip_phase;
 pub mod advance_month;
 pub mod claim_winning;
 pub mod commit_bid;
@@ -18,6 +19,7 @@ pub mod suspend_participant;
 pub mod mock_issue_kyc;
 
 pub use admin_close_protocol::*;
+pub use admin_skip_phase::*;
 pub use advance_month::*;
 pub use claim_winning::*;
 pub use commit_bid::*;

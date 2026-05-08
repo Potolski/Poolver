@@ -17,7 +17,7 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import { sendIxs } from "@/lib/tx-helpers";
 import { USDC_MINT_DEVNET_DEFAULT } from "@/lib/constants";
 
-type DurationPreset = "10m" | "1h" | "1d" | "30d";
+type DurationPreset = "2m" | "10m" | "1h" | "1d" | "30d";
 
 interface PoolConfig {
   name: string;
@@ -27,6 +27,7 @@ interface PoolConfig {
 }
 
 const DURATION_SECONDS: Record<DurationPreset, number> = {
+  "2m": 120,
   "10m": 600,
   "1h": 3_600,
   "1d": 86_400,
@@ -34,6 +35,7 @@ const DURATION_SECONDS: Record<DurationPreset, number> = {
 };
 
 const DURATION_LABEL: Record<DurationPreset, string> = {
+  "2m": "2 minutes (fast demo)",
   "10m": "10 minutes",
   "1h": "1 hour",
   "1d": "1 day",
@@ -354,7 +356,7 @@ export default function CreatePage() {
                   hint="Default = 30 days. Pick a shorter duration to demo a full cycle in minutes."
                 >
                   <div className="seg">
-                    {(["10m", "1h", "1d", "30d"] as const).map((d) => (
+                    {(["2m", "10m", "1h", "1d", "30d"] as const).map((d) => (
                       <button
                         key={d}
                         className={`seg-btn ${cfg.duration === d ? "on" : ""}`}

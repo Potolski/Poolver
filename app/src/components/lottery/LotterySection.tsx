@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { toast } from "sonner";
 import {
+  ADMIN_PUBKEY_DEVNET,
   advanceMonthIx,
+  adminSkipPhaseIx,
   selectWinnerIx,
   type ParticipantView,
   type PoolMonthState,
@@ -45,9 +47,12 @@ export function LotterySection({
   monthState,
   onRefresh,
 }: Props) {
-  const { client, connected } = usePoolver();
+  const { client, connected, publicKey } = usePoolver();
+  const isAdmin =
+    connected && publicKey?.toBase58() === ADMIN_PUBKEY_DEVNET.toBase58();
   const [advancing, setAdvancing] = useState(false);
   const [selecting, setSelecting] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   const [bidStats, setBidStats] = useState<{
     committed: number;
     revealed: number;
@@ -103,6 +108,32 @@ export function LotterySection({
       cancelled = true;
     };
   }, [client, pool.publicKey, month, pool.currentMonth]);
+
+  const handleSkip = async () => {
+    if (!isAdmin) {
+      toast.error("Admin only");
+      return;
+    }
+    setSkipping(true);
+    const toastId = toast.loading("Skipping phase…");
+    try {
+      const ix = await adminSkipPhaseIx(client, { pool: pool.publicKey });
+      const sig = await sendIxs(client, [ix]);
+      toast.success("Phase skipped", {
+        id: toastId,
+        description: `sig: ${sig.slice(0, 12)}…`,
+      });
+      await onRefresh();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error("Skip failed", {
+        id: toastId,
+        description: msg.slice(0, 200),
+      });
+    } finally {
+      setSkipping(false);
+    }
+  };
 
   const handleSelect = async () => {
     if (!connected) {
@@ -259,6 +290,17 @@ export function LotterySection({
                 >
                   month auto-advances after duration elapses
                 </span>
+              )}
+              {isAdmin && month > 0 && !pool.isComplete && (
+                <button
+                  className="btn ghost"
+                  disabled={skipping}
+                  onClick={handleSkip}
+                  title="Admin: fast-forward this phase (bid window → reveal window → month-end). Devnet only."
+                  style={{ marginLeft: "auto" }}
+                >
+                  {skipping ? "Skipping…" : "⏩ Skip phase (admin)"}
+                </button>
               )}
             </div>
           </div>
