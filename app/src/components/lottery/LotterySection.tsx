@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PublicKey } from "@solana/web3.js";
+import { ComputeBudgetProgram, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
 import { toast } from "sonner";
 import {
   ADMIN_PUBKEY_DEVNET,
@@ -68,11 +69,26 @@ export function LotterySection({
   const revealWindowClosed =
     pool.revealWindowEndsAt.gtn(0) &&
     Date.now() / 1000 >= pool.revealWindowEndsAt.toNumber();
+
+  // Authoritative "winner has been drawn for this month" check. We
+  // can't rely on `bidStats.winnerSelected` (which derives from the
+  // `Bid.is_winner` flag) because lottery winners have no Bid PDA —
+  // their MonthWinner entry is the only signal. This mirrors how
+  // MonthTimeline + ParticipantRoster already read winners.
+  const winners =
+    ((pool.raw as {
+      winners?: Array<{ month: number; selectedAt: BN }>;
+    }).winners) ?? [];
+  const monthWinnerSelected =
+    month > 0 && month <= winners.length
+      ? Boolean(winners[month - 1]?.selectedAt?.gtn?.(0))
+      : false;
+
   const stage = monthState?.inBidWindow
     ? { label: "BID OPEN", color: "var(--acc)" }
     : monthState?.inRevealWindow
       ? { label: "REVEAL OPEN", color: "var(--acc-2, var(--acc))" }
-      : revealWindowClosed && month > 0 && !bidStats?.winnerSelected
+      : revealWindowClosed && month > 0 && !monthWinnerSelected
         ? { label: "READY TO DRAW", color: "var(--warn)" }
         : monthEnded
           ? { label: "MONTH ENDED", color: "var(--warn)" }
@@ -192,12 +208,21 @@ export function LotterySection({
         bidders: bidStats.bidders,
         nonBidders,
       });
+      // Bump CU limit above the 200k default. select_winner walks up
+      // to 12 (Participant, Kyc) pairs, sha256-hashes each tiebreak,
+      // and may CPI into reserve to forfeit unrevealed stakes — the
+      // 200k default is too tight and the wallet's static simulator
+      // raises a "transaction may fail" warning. 400k leaves headroom
+      // and silences the warning without affecting fee meaningfully.
+      const cuIx = ComputeBudgetProgram.setComputeUnitLimit({
+        units: 400_000,
+      });
       // v0 + ALT: the protocol-static ALT holds 8 addresses
       // (protocol_config, core_invoker, reserve_fund × tier,
       // reserve_vault × tier, reserve_program, token_program), which
       // saves ~248 bytes — enough headroom for a 12-non-bidder lottery
       // draw to fit under the 1232-byte legacy-tx cap.
-      const sig = await sendIxsV0(client, [ix], [POOLVER_ALT_DEVNET]);
+      const sig = await sendIxsV0(client, [cuIx, ix], [POOLVER_ALT_DEVNET]);
       toast.success("Winner selected", {
         id: toastId,
         description: `sig: ${sig.slice(0, 12)}…`,
@@ -302,7 +327,7 @@ export function LotterySection({
                 alignItems: "center",
               }}
             >
-              {revealWindowClosed && month > 0 && !bidStats?.winnerSelected && (
+              {revealWindowClosed && month > 0 && !monthWinnerSelected && (
                 <button
                   className="btn primary"
                   disabled={selecting}
@@ -316,19 +341,26 @@ export function LotterySection({
                   {selecting ? "Selecting…" : "▶ Run draw / select winner"}
                 </button>
               )}
-              {monthEnded && month > 0 && (
+              {monthEnded && month > 0 && monthWinnerSelected && (
                 <button
                   className="btn primary"
                   disabled={advancing}
                   onClick={handleAdvance}
-                  title={
-                    bidStats?.winnerSelected
-                      ? "Advance to the next month"
-                      : "Advance — note: no winner selected yet for this month. Run draw first or skip the month with no winner."
-                  }
+                  title="Advance to the next month"
                 >
                   {advancing ? "Advancing…" : "↯ Advance month"}
                 </button>
+              )}
+              {monthEnded && month > 0 && !monthWinnerSelected && (
+                <span
+                  style={{
+                    fontFamily: "var(--mono)",
+                    fontSize: 11,
+                    color: "var(--warn)",
+                  }}
+                >
+                  ⚠ draw the month winner before advancing
+                </span>
               )}
               {!monthEnded && !revealWindowClosed && (
                 <span
@@ -393,7 +425,7 @@ export function LotterySection({
           <div className="outcome-row">
             <span>Winner</span>
             <span className="v">
-              {bidStats?.winnerSelected
+              {monthWinnerSelected
                 ? "✓ selected"
                 : revealWindowClosed
                   ? "pending — click Run draw"

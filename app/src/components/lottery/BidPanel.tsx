@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { PublicKey } from "@solana/web3.js";
 import { toast } from "sonner";
 import BN from "bn.js";
 import {
@@ -47,11 +48,42 @@ function computeBidCapHuman(pool: PoolView): number {
   return Number(microUsdcToHuman(capMicro));
 }
 
+interface MonthWinnerRaw {
+  month: number;
+  winner: PublicKey;
+  selectedAt: BN;
+}
+
 export function BidPanel({ pool, participant, monthState, onRefresh }: Props) {
   const { client, connected, publicKey } = usePoolver();
   const month = monthState?.currentMonth ?? pool.currentMonth;
   const inBid = monthState?.inBidWindow ?? false;
   const inReveal = monthState?.inRevealWindow ?? false;
+
+  // Has this wallet already won a previous (or current) month? The
+  // bid path must be hard-gated client-side — the on-chain handler
+  // rejects with AlreadyWon (0x178b), and even though that's correct
+  // it leaves the UI in an inconsistent state because submitCommit
+  // persists the bid secret BEFORE signing (handoff §9.2). Best fix
+  // is to never let them click the button.
+  const userWinMonth = useMemo<number>(() => {
+    if (!publicKey) return 0;
+    const winners =
+      ((pool.raw as { winners?: MonthWinnerRaw[] }).winners) ?? [];
+    const me = publicKey.toBase58();
+    for (const w of winners) {
+      if (
+        w.selectedAt &&
+        w.selectedAt.gtn?.(0) &&
+        w.month > 0 &&
+        w.winner.toBase58() === me
+      ) {
+        return w.month;
+      }
+    }
+    return 0;
+  }, [pool.raw, publicKey]);
+  const hasUserWon = userWinMonth > 0;
 
   const [savedSecret, setSavedSecret] = useState<BidSecret | null>(null);
   const [secretLoading, setSecretLoading] = useState(true);
@@ -127,6 +159,16 @@ export function BidPanel({ pool, participant, monthState, onRefresh }: Props) {
       });
       await onRefresh();
     } catch (e) {
+      // Tx failed AFTER we persisted the secret to IndexedDB. Without
+      // cleanup the next render would read the stale secret back and
+      // render "Bid committed" even though the chain rejected the ix.
+      try {
+        const key = bidKey(pool.publicKey, month, publicKey);
+        await clearBidSecret(key);
+      } catch {
+        /* ignore — the toast below is the user-visible signal */
+      }
+      setSavedSecret(null);
       const msg = e instanceof Error ? e.message : String(e);
       toast.error("Commit failed", { id: toastId, description: msg.slice(0, 200) });
     } finally {
@@ -229,7 +271,29 @@ export function BidPanel({ pool, participant, monthState, onRefresh }: Props) {
           </div>
         )}
 
-        {isConnected && isParticipant && month > 0 && inBid && !savedSecret && (
+        {isConnected && isParticipant && month > 0 && hasUserWon && (
+          <div
+            style={{
+              padding: 14,
+              border: "1px solid var(--acc)",
+              borderRadius: 3,
+              fontSize: 12.5,
+              color: "var(--fg-2)",
+              fontFamily: "var(--mono)",
+              lineHeight: 1.6,
+            }}
+          >
+            ✓ You already won this pool (month {String(userWinMonth).padStart(2, "0")}).
+            <br />
+            <span style={{ color: "var(--fg-4)" }}>
+              Per the protocol, each wallet can only win once per pool —
+              bidding is closed for you. Keep contributing on time to
+              keep your reputation green.
+            </span>
+          </div>
+        )}
+
+        {isConnected && isParticipant && month > 0 && !hasUserWon && inBid && !savedSecret && (
           <>
             <div className="field">
               <label>Your bid · USDC</label>
@@ -267,7 +331,7 @@ export function BidPanel({ pool, participant, monthState, onRefresh }: Props) {
           </>
         )}
 
-        {isConnected && isParticipant && month > 0 && inBid && savedSecret && (
+        {isConnected && isParticipant && month > 0 && !hasUserWon && inBid && savedSecret && (
           <div
             style={{
               padding: 14,
@@ -288,7 +352,7 @@ export function BidPanel({ pool, participant, monthState, onRefresh }: Props) {
           </div>
         )}
 
-        {isConnected && isParticipant && month > 0 && inReveal && (
+        {isConnected && isParticipant && month > 0 && !hasUserWon && inReveal && (
           <>
             {savedSecret ? (
               <>
@@ -337,7 +401,7 @@ export function BidPanel({ pool, participant, monthState, onRefresh }: Props) {
           </>
         )}
 
-        {isConnected && isParticipant && month > 0 && !inBid && !inReveal && (
+        {isConnected && isParticipant && month > 0 && !hasUserWon && !inBid && !inReveal && (
           <div
             style={{
               padding: 14,
