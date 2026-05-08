@@ -56,7 +56,8 @@ export function LotterySection({
   const [bidStats, setBidStats] = useState<{
     committed: number;
     revealed: number;
-    revealedBidders: PublicKey[];
+    /** All wallets that called commit_bid this month (revealed or not). */
+    bidders: PublicKey[];
     winnerSelected: boolean;
   } | null>(null);
 
@@ -96,13 +97,13 @@ export function LotterySection({
         setBidStats({
           committed: thisMonth.length,
           revealed: revealed.length,
-          revealedBidders: revealed.map((a) => a.account.user),
+          bidders: thisMonth.map((a) => a.account.user),
           winnerSelected,
         });
       })
       .catch(() => {
         if (cancelled) return;
-        setBidStats({ committed: 0, revealed: 0, revealedBidders: [], winnerSelected: false });
+        setBidStats({ committed: 0, revealed: 0, bidders: [], winnerSelected: false });
       });
     return () => {
       cancelled = true;
@@ -147,11 +148,25 @@ export function LotterySection({
     setSelecting(true);
     const toastId = toast.loading("Selecting winner…");
     try {
+      // Build the candidate sets:
+      //   bidders     = every wallet that called commit_bid this month
+      //                 (revealed or not — unrevealed gets stake forfeit)
+      //   nonBidders  = active participants who didn't bid (lottery pool)
+      const bidderSet = new Set(bidStats.bidders.map((p) => p.toBase58()));
+      const allParticipants = (
+        pool.raw as { participants?: Array<PublicKey | null> }
+      ).participants ?? [];
+      const nonBidders: PublicKey[] = [];
+      for (const p of allParticipants) {
+        if (!p) continue;
+        if (!bidderSet.has(p.toBase58())) nonBidders.push(p);
+      }
       const ix = await selectWinnerIx(client, {
         pool: pool.publicKey,
         tier: pool.tier,
         month,
-        revealedBidders: bidStats.revealedBidders,
+        bidders: bidStats.bidders,
+        nonBidders,
       });
       const sig = await sendIxs(client, [ix]);
       toast.success("Winner selected", {

@@ -394,19 +394,45 @@ export function buildSelectWinnerAccounts(
 }
 
 /**
- * `select_winner`'s remaining-accounts list is the set of revealed Bid PDAs
- * for the current month. Caller passes the bidder pubkeys; SDK derives the
- * Bid PDA for each.
+ * `select_winner`'s remaining-accounts is self-describing per the on-chain
+ * convention (see select_winner.rs module comment):
+ *
+ *   remaining = (
+ *     [bid, participant, kyc] × N_committed_bids,
+ *     [participant, kyc]      × M_non_bidder_candidates,
+ *   )
+ *
+ * Pass EVERY `Bid` PDA for the current month (revealed or unrevealed —
+ * unrevealed ones get their stake forfeit to the tier reserve in this
+ * same ix). For the lottery path, also pass non-bidder participants so
+ * the handler can find a candidate.
+ *
+ * `bidders` and `nonBidders` may overlap conceptually but should be
+ * disjoint sets — bidders are wallets that called commit_bid for the
+ * current month; non-bidders are everyone else still active.
  */
 export function buildSelectWinnerRemainingAccounts(
   pool: PublicKey,
   month: number,
-  revealedBidders: PublicKey[]
+  bidders: PublicKey[],
+  nonBidders: PublicKey[] = []
 ): AccountMeta[] {
-  return revealedBidders.map((bidder) => {
+  const out: AccountMeta[] = [];
+  for (const bidder of bidders) {
     const [bid] = findBid(pool, month, bidder);
-    return { pubkey: bid, isSigner: false, isWritable: true };
-  });
+    const [participant] = findParticipant(pool, bidder);
+    const [kyc] = findKycAttestation(bidder);
+    out.push({ pubkey: bid, isSigner: false, isWritable: true });
+    out.push({ pubkey: participant, isSigner: false, isWritable: false });
+    out.push({ pubkey: kyc, isSigner: false, isWritable: false });
+  }
+  for (const user of nonBidders) {
+    const [participant] = findParticipant(pool, user);
+    const [kyc] = findKycAttestation(user);
+    out.push({ pubkey: participant, isSigner: false, isWritable: false });
+    out.push({ pubkey: kyc, isSigner: false, isWritable: false });
+  }
+  return out;
 }
 
 export interface ClaimWinningAccounts {

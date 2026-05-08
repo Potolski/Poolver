@@ -15,11 +15,19 @@ export interface SelectWinnerArgs {
   /** Current month being resolved (1..=12). */
   month: number;
   /**
-   * The pubkeys of every participant who successfully `revealBid`'d for
-   * this month. The SDK derives the `bid` PDA for each. If empty the
-   * on-chain handler falls back to the (mock) VRF entropy path.
+   * EVERY participant who called `commit_bid` for this month — both
+   * those who revealed and those who didn't (unrevealed bidders get
+   * their stake forfeit to the tier reserve here). SDK derives Bid +
+   * Participant + KYC PDAs for each.
    */
-  revealedBidders: PublicKey[];
+  bidders: PublicKey[];
+  /**
+   * Non-bidder participants. Required for the lottery branch (no
+   * revealed bids) so the handler has candidates to draw from. Pass
+   * every active participant who didn't bid; eligibility (no prior
+   * win, not defaulted, KYC ok) is checked on-chain.
+   */
+  nonBidders: PublicKey[];
 }
 
 /**
@@ -35,7 +43,8 @@ export async function selectWinnerIx(
   const remaining = buildSelectWinnerRemainingAccounts(
     args.pool,
     args.month,
-    args.revealedBidders
+    args.bidders,
+    args.nonBidders
   );
   return client.core.methods
     .selectWinner()
