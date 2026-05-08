@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ComputeBudgetProgram, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { toast } from "sonner";
@@ -65,6 +65,11 @@ export function LotterySection({
   const [unpaidParticipants, setUnpaidParticipants] = useState<
     PublicKey[] | null
   >(null);
+  /** Per-(pool,month) attempt flag for the page-side auto-slash. We
+   *  only auto-fire ONCE per session per (pool, month) so a failed run
+   *  isn't retried on every poll tick. The user can still hit the
+   *  manual "Slash N unpaid" button to retry. */
+  const autoSlashAttempted = useRef<Set<string>>(new Set());
 
   const month = monthState?.currentMonth ?? pool.currentMonth;
   const secsLeft = monthState?.secondsUntilMonthEnd ?? 0;
@@ -228,6 +233,30 @@ export function LotterySection({
       setSlashing(false);
     }
   };
+
+  // ───── Page-side auto-slash ────────────────────────────────────────
+  // Cooperative-keeper model: every visitor with a connected wallet
+  // who lands on a pool whose current month has ended automatically
+  // submits the slash transactions for any unpaid wallets. Fires once
+  // per (pool, month) per session — the manual "Slash N unpaid" button
+  // remains as a retry path. The chain enforces idempotency: a second
+  // call after a successful slash reverts with `NotLate`.
+  useEffect(() => {
+    if (!connected) return;
+    if (!monthEnded || month < 1) return;
+    if (slashing) return;
+    if (!unpaidParticipants || unpaidParticipants.length === 0) return;
+    const key = `${pool.publicKey.toBase58()}:${month}`;
+    if (autoSlashAttempted.current.has(key)) return;
+    autoSlashAttempted.current.add(key);
+    // Small delay so the user can see the count + cancel by reloading
+    // before the wallet popups start appearing.
+    const id = window.setTimeout(() => {
+      void handleSlashAll();
+    }, 2_500);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, monthEnded, month, unpaidParticipants, pool.publicKey]);
 
   const handleSelect = async () => {
     if (!connected) {
