@@ -216,7 +216,7 @@ async function main() {
     try {
       const selectIx = await selectWinnerIx(adminClient, {
         pool: poolPk,
-        tier: "vault",
+        tier: probe.tier,
         month: m,
         bidders: [],
         nonBidders: eligibleNonBidders,
