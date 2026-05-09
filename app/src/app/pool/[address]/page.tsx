@@ -10,8 +10,9 @@ import { MonthTimeline } from "@/components/pools/MonthTimeline";
 import { ParticipantRoster } from "@/components/pools/ParticipantRoster";
 import { PoolActions } from "@/components/pools/PoolActions";
 import { ReserveStats } from "@/components/pools/ReserveStats";
+import { DefiKaminoStats } from "@/components/pools/DefiKaminoStats";
 import { usePool } from "@/hooks/usePool";
-import { fmtCountdown } from "@/lib/format";
+import { fmtCountdown, fmtUSD } from "@/lib/format";
 import { derivePoolStatus } from "@/lib/types";
 import { truncateAddress } from "@/lib/utils";
 
@@ -79,7 +80,8 @@ export default function PoolPage() {
     pool.totalMonths > 0 ? (displayMonth / pool.totalMonths) * 100 : 0;
 
   const idShort = `PLVR-${pool.publicKey.toBase58().slice(0, 4).toUpperCase()}`;
-  const tierLabel = pool.tier === "vault" ? "Tier 0 · Vault" : "Tier 1 · DeFi";
+  const tierLabel =
+    pool.tier === "vault" ? "Tier 0 · Vault" : "Tier 1 · Kamino";
 
   return (
     <>
@@ -104,6 +106,24 @@ export default function PoolPage() {
                   : `LIVE · MONTH ${String(displayMonth).padStart(2, "0")}/${pool.totalMonths}`}
               {" · "}
               {idShort}
+              {pool.tier === "defi" && (
+                <>
+                  {" · "}
+                  <a
+                    href="https://app.kamino.finance/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="This pool's contributions are deposited into Kamino's main lending vault on Solana. Click to inspect the live position on app.kamino.finance."
+                    style={{
+                      color: "var(--acc)",
+                      textDecoration: "none",
+                      borderBottom: "1px dashed var(--acc)",
+                    }}
+                  >
+                    KAMINO ↗
+                  </a>
+                </>
+              )}
             </div>
             <h1
               className="hero-headline"
@@ -112,7 +132,7 @@ export default function PoolPage() {
               {idShort}
               <br />
               <em>
-                ${monthlyHuman.toLocaleString()}/mo · {pool.participantCount}/12
+                {fmtUSD(monthlyHuman)}/mo · {pool.participantCount}/12
               </em>
             </h1>
             <p className="hero-deck">
@@ -123,7 +143,7 @@ export default function PoolPage() {
                   : `Month ${displayMonth} of ${pool.totalMonths}.`}{" "}
               Lifetime pool{" "}
               <b style={{ color: "var(--fg)" }}>
-                ${lifetimeHuman.toLocaleString()}
+                {fmtUSD(lifetimeHuman)}
               </b>
               {monthState && monthState.secondsUntilMonthEnd > 0 && (
                 <>
@@ -164,7 +184,7 @@ export default function PoolPage() {
               <PoolverMark size={240} className="terminal-watermark" />
               <div className="metric-label">Contributed (lifetime)</div>
               <div className="metric-value">
-                ${totalContributedHuman.toLocaleString()}
+                {fmtUSD(totalContributedHuman)}
                 <span className="tick">_</span>
               </div>
               <div className="metric-bar">
@@ -181,9 +201,7 @@ export default function PoolPage() {
               </div>
               <div className="metric-kv">
                 <span className="k">Monthly</span>
-                <span className="v">
-                  ${monthlyHuman.toLocaleString()}
-                </span>
+                <span className="v">{fmtUSD(monthlyHuman)}</span>
                 <span className="k">Members</span>
                 <span className="v">{pool.participantCount}/12</span>
                 <span className="k">Tier</span>
@@ -214,7 +232,7 @@ export default function PoolPage() {
                 </span>
                 <span className="k">Distributed</span>
                 <span className="v">
-                  ${Number(microUsdcToHuman(pool.totalDistributed)).toLocaleString()}
+                  {fmtUSD(Number(microUsdcToHuman(pool.totalDistributed)))}
                 </span>
               </div>
             </div>
@@ -231,6 +249,7 @@ export default function PoolPage() {
         onRefresh={refetch}
       />
       <ReserveStats tier={pool.tier} />
+      {pool.tier === "defi" && <DefiKaminoStats pool={pool} />}
 
       <section className="shell section">
         <div className="landing-cta">

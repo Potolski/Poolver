@@ -103,7 +103,7 @@ export function PoolCard({ pool, featured }: PoolCardProps) {
                 marginTop: 2,
               }}
             >
-              Solana · USDC · Tier {pool.tier === "vault" ? "0" : "1"}
+              Solana · USDC · Tier {pool.tier === "vault" ? "0 · Vault" : "1 · Kamino"}
             </div>
           </div>
         </div>
@@ -157,7 +157,7 @@ export function PoolCard({ pool, featured }: PoolCardProps) {
               letterSpacing: "-0.01em",
             }}
           >
-            ${monthlyHuman.toLocaleString()}
+            {fmtUSD(monthlyHuman)}
           </div>
         </div>
       </div>
