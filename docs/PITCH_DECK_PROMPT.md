@@ -48,7 +48,7 @@ Footer line in mono: founders' emails / X handles.
 
 Three pain icons + one hero stat.
 
-- **Hero stat (large):** ~R$ 300B+ in active consórcios · ~9M Brazilian participants. (`Source: ABAC 2023`)
+- **Hero stat (large):** **~$60B+ USD** in active consórcios · ~9M Brazilian participants. (`Source: ABAC 2023, converted from R$ at ~5.0 BRL/USD`)
 - **Three pains** (icon + 2–3-word label):
   - Opaque draws — you trust the administrator
   - Admin fees up to ~20% of contributions
@@ -188,10 +188,11 @@ Caption: *"Two-person team. Full focus. Brazilian-native go-to-market."*
 
 ### 12 · Ask
 
-Three concise points + a QR:
+Three concise points + a QR. Keep the dollar figure flexible — we'll
+size the raise per the conversation, not the deck.
 
-- **Raising [$AMOUNT]** for 12 months of runway
-- **Use of funds**: 60% engineering · 20% biz dev (regulatory + partnerships) · 15% audit · 5% mainnet launch
+- **Now raising — let's talk.** Building 12 months of runway.
+- **Where the money goes**: engineering · biz dev (regulatory + partnerships) · audit · mainnet launch
 - **Contact**: davidpotolskilafeta@gmail.com · [Brenno's email] · @poolverfi
 - Big QR code → poolver.com
 
@@ -213,9 +214,11 @@ Three concise points + a QR:
 
 Generate a first complete pass. After review we'll iterate on:
 
-1. Exact market numbers (verify against ABAC + Banco Central sources)
+1. Exact USD-converted market numbers (verify against ABAC + Banco
+   Central sources, use a conservative BRL→USD rate)
 2. Quote wording from Orda founder once cleared
-3. Funding ask number on slide 12
+3. Funding-ask wording on slide 12 — keep figures out of the deck;
+   surface the number in the meeting once the conversation has shape
 4. Porto Seguro phrasing — keep it as "in active discussions" until
    anything is publicly announceable
 5. Tightening any slide that creeps over the 15-word headline budget
