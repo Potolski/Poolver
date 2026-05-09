@@ -128,7 +128,10 @@ export const LIQUIDATION_THRESHOLD_SECS = 30 * ONE_DAY_SECS;
 // ─────────────────────────── Tier enum (matches Anchor IDL) ──────────
 
 export const TIER_VAULT = { vault: {} } as const;
-export const TIER_DEFI = { defi: {} } as const;
+// Anchor TS encodes Rust enum variants by lowercasing the first letter
+// only — `DeFi` → `deFi`, NOT `defi`. Getting this wrong throws
+// "unable to infer src variant" at instruction-encode time.
+export const TIER_DEFI = { deFi: {} } as const;
 export type TierIdl = typeof TIER_VAULT | typeof TIER_DEFI;
 export type TierName = "vault" | "defi";
 

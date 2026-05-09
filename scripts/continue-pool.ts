@@ -151,7 +151,7 @@ async function main() {
       try {
         const ix = await contributeIx(userClient, {
           pool: poolPk,
-          tier: "vault",
+          tier: probe.tier,
           usdcMint: USDC_MINT_DEVNET_DEFAULT,
         });
         await userProvider.sendAndConfirm!(new Transaction().add(ix), [], {
@@ -183,7 +183,7 @@ async function main() {
           const ix = await slashUnpaidIx(adminClient, {
             pool: poolPk,
             delinquent: wallets[i].publicKey,
-            tier: "vault",
+            tier: probe.tier,
           });
           await adminProvider.sendAndConfirm!(
             new Transaction().add(ix),

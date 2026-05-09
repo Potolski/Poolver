@@ -60,12 +60,14 @@ import {
   mockIssueKycIx,
   selectWinnerIx,
   slashUnpaidIx,
+  type TierName,
 } from "../client/src";
 
 interface Args {
   rpc: string;
   wallet: string;
   monthDurationSecs: number;
+  tier: TierName;
 }
 
 function parseArgs(): Args {
@@ -73,10 +75,15 @@ function parseArgs(): Args {
     const i = process.argv.indexOf(`--${k}`);
     return i >= 0 ? process.argv[i + 1] : undefined;
   };
+  const tierArg = (get("tier") ?? "vault").toLowerCase();
+  if (tierArg !== "vault" && tierArg !== "defi") {
+    throw new Error(`--tier must be "vault" or "defi", got ${tierArg}`);
+  }
   return {
     rpc: get("rpc") ?? "https://api.devnet.solana.com",
     wallet: resolve(get("wallet") ?? "./deploy-keypair.json"),
     monthDurationSecs: parseInt(get("month-duration") ?? "90", 10),
+    tier: tierArg as TierName,
   };
 }
 
@@ -126,6 +133,7 @@ async function main() {
   console.log("admin:", admin.publicKey.toBase58());
   console.log("rpc:  ", args.rpc);
   console.log("month duration:", args.monthDurationSecs, "s");
+  console.log("tier:          ", args.tier);
 
   // ───── 1. Generate 12 wallets ────────────────────────────────────
   const wallets: Keypair[] = Array.from({ length: 12 }, () =>
@@ -231,7 +239,7 @@ async function main() {
   const poolId = new BN(Math.floor(Date.now() / 1000));
   const { ix: createIx, pool: poolPk } = await createPoolIx(adminClient, {
     poolId,
-    tier: "vault",
+    tier: args.tier,
     contributionAmount: contributionMicro,
     monthDurationSeconds: new BN(args.monthDurationSecs),
     usdcMint: USDC_MINT_DEVNET_DEFAULT,
@@ -251,7 +259,7 @@ async function main() {
     const userClient = new PoolverClient(userProvider);
     const ix = await joinPoolIx(userClient, {
       pool: poolPk,
-      tier: "vault",
+      tier: args.tier,
       usdcMint: USDC_MINT_DEVNET_DEFAULT,
     });
     await userProvider.sendAndConfirm!(new Transaction().add(ix), [], {
@@ -290,7 +298,7 @@ async function main() {
       try {
         const ix = await contributeIx(userClient, {
           pool: poolPk,
-          tier: "vault",
+          tier: args.tier,
           usdcMint: USDC_MINT_DEVNET_DEFAULT,
         });
         await userProvider.sendAndConfirm!(new Transaction().add(ix), [], {
@@ -332,7 +340,7 @@ async function main() {
           const ix = await slashUnpaidIx(adminClient, {
             pool: poolPk,
             delinquent,
-            tier: "vault",
+            tier: args.tier,
           });
           await adminProvider.sendAndConfirm!(
             new Transaction().add(ix),
@@ -380,7 +388,7 @@ async function main() {
     try {
       const selectIx = await selectWinnerIx(adminClient, {
         pool: poolPk,
-        tier: "vault",
+        tier: args.tier,
         month: m,
         bidders: [],
         nonBidders: eligibleNonBidders,
@@ -435,7 +443,7 @@ async function main() {
     try {
       const ix = await contributeIx(userClient, {
         pool: poolPk,
-        tier: "vault",
+        tier: args.tier,
         usdcMint: USDC_MINT_DEVNET_DEFAULT,
       });
       await userProvider.sendAndConfirm!(new Transaction().add(ix), [], {
