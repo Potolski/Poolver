@@ -78,9 +78,21 @@ export function usePools(): UsePoolsResult {
         }
       ).pool;
       const accounts = await accountClient.all();
-      const decoded = accounts.map(({ publicKey, account }) =>
-        decodePool(publicKey, account)
-      );
+      // Decode each pool independently — a single decode failure (e.g. an
+      // unrecognized tier variant from a stale deployed bundle) shouldn't
+      // wipe the whole list. Log the offender to console and keep going.
+      const decoded: PoolView[] = [];
+      for (const { publicKey, account } of accounts) {
+        try {
+          decoded.push(decodePool(publicKey, account));
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `pool ${publicKey.toBase58()} failed to decode — skipped:`,
+            e
+          );
+        }
+      }
       setPools(decoded);
     } catch (err) {
       setError(err instanceof Error ? err : new Error("failed to list pools"));
