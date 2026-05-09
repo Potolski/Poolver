@@ -953,8 +953,30 @@ body::after {
 }
 .month:hover { border-color: var(--line-2); background: var(--bg-2); transform: translateY(-1px); }
 .month .m-n { font-family: var(--mono); font-size: 11px; color: var(--fg-4); letter-spacing: 0.1em; }
-.month .m-w { font-family: var(--mono); font-size: 12px; color: var(--fg); line-height: 1.2; }
-.month .m-a { font-family: var(--mono); font-size: 11px; color: var(--fg-3); font-variant-numeric: tabular-nums; }
+.month .m-w {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fg);
+  line-height: 1.2;
+  /* Wallet labels are pre-truncated to 4 chars; this is belt-and-suspenders
+     in case totalMonths × cell-width gets squeezed on narrow viewports. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.month .m-a {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+  /* Large pots ($50K+) overflow the cell; shrink to fit and ellipsize
+     before the number can spill into the next month's cell. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 .month.done { background: var(--bg-2); border-color: var(--line-2); }
 .month.done .m-n { color: var(--acc); }
 .month.done::before {

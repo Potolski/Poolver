@@ -26,6 +26,8 @@ interface RosterRow {
   pda: PublicKey;
   user: PublicKey;
   paidMonthsBitmap: number;
+  /** Bit N = month N+1 was satisfied via slash_unpaid (not contribute). */
+  slashedMonthsBitmap: number;
   isDefaulted: boolean;
   isSuspended: boolean;
   hasWon: boolean;
@@ -44,6 +46,7 @@ function decodeRow(
     pda,
     user: raw.user as PublicKey,
     paidMonthsBitmap: (raw.paidMonths as number) ?? 0,
+    slashedMonthsBitmap: (raw.slashedMonths as number) ?? 0,
     isDefaulted: Boolean(raw.isDefaulted),
     isSuspended: Boolean(raw.isSuspended),
     hasWon: Boolean(raw.hasWon),
@@ -62,22 +65,40 @@ interface ParticipantAccountClient {
   all: (filters?: unknown[]) => Promise<AccountAllResult[]>;
 }
 
-function PaidMonthsBar({ bitmap, totalMonths }: { bitmap: number; totalMonths: number }) {
+function PaidMonthsBar({
+  paidBitmap,
+  slashedBitmap,
+  totalMonths,
+}: {
+  paidBitmap: number;
+  slashedBitmap: number;
+  totalMonths: number;
+}) {
   const cells = Array.from({ length: totalMonths }, (_, i) => i + 1);
   return (
     <div style={{ display: "inline-flex", gap: 2 }}>
       {cells.map((m) => {
-        const paid = (bitmap & (1 << (m - 1))) !== 0;
+        const bit = 1 << (m - 1);
+        const slashed = (slashedBitmap & bit) !== 0;
+        // `paid_months` is set by both contribute AND slash_unpaid, so
+        // "paid on time" is the bit being set in paid AND NOT in slashed.
+        const paid = !slashed && (paidBitmap & bit) !== 0;
+        const tag = slashed ? "slashed" : paid ? "paid" : "unpaid";
         return (
           <span
             key={m}
-            title={`M${String(m).padStart(2, "0")} ${paid ? "paid" : "unpaid"}`}
+            title={`M${String(m).padStart(2, "0")} ${tag}`}
             style={{
               width: 8,
               height: 12,
               borderRadius: 1,
-              background: paid ? "var(--acc)" : "var(--bg-3)",
-              border: paid ? "none" : "1px solid var(--line)",
+              background: slashed
+                ? "var(--err, #ef4444)"
+                : paid
+                  ? "var(--acc)"
+                  : "var(--bg-3)",
+              border:
+                slashed || paid ? "none" : "1px solid var(--line)",
             }}
           />
         );
@@ -188,7 +209,9 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
               <th className="num" title="Collateral locked. Everyone posts 12× contribution at join (fully refundable on completion). Winners post additional collateral when they claim.">
                 Collateral
               </th>
-              <th>Paid months</th>
+              <th title="Per-month state — green = paid on time · red = slashed (collateral covered the missed contribution) · empty = unpaid / not yet due">
+                Paid / slashed
+              </th>
               <th>Status</th>
               <th className="num">Won</th>
             </tr>
@@ -307,7 +330,8 @@ export function ParticipantRoster({ pool }: { pool: PoolView }) {
                   </td>
                   <td>
                     <PaidMonthsBar
-                      bitmap={r.paidMonthsBitmap}
+                      paidBitmap={r.paidMonthsBitmap}
+                      slashedBitmap={r.slashedMonthsBitmap}
                       totalMonths={pool.totalMonths}
                     />
                   </td>

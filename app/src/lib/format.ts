@@ -4,7 +4,10 @@ import { microUsdcToHuman } from "@poolver/client";
 export function fmtUSD(n: number): string {
   if (n >= 1_000_000)
     return `$${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 2)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  // For values 1K..99.99K show one decimal so we don't round 5,820 → "$6K"
+  // (which feels lossy in the calendar cell). 100K+ rounds cleanly to "$100K".
+  if (n >= 100_000) return `$${(n / 1_000).toFixed(0)}K`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
   return `$${n.toLocaleString()}`;
 }
 

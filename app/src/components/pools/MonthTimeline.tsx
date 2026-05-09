@@ -56,12 +56,24 @@ export function MonthTimeline({ pool }: { pool: PoolView }) {
               : m === pool.currentMonth
                 ? "pending"
                 : "—";
+            // Compact format ($5.8K / $50K / $1.2M) so even a 12-cell row
+            // on narrow viewports doesn't overflow. Tooltip on the cell
+            // shows the exact figure for anyone who needs it.
             const amount =
+              hasWinner && w.netPayout
+                ? fmtUSD(Number(microUsdcToHuman(w.netPayout)))
+                : "";
+            const fullAmount =
               hasWinner && w.netPayout
                 ? `$${Number(microUsdcToHuman(w.netPayout)).toLocaleString()}`
                 : "";
+            const tooltip = hasWinner
+              ? `Month ${m} · winner ${w.winner.toBase58()} · ${fullAmount}`
+              : m === pool.currentMonth
+                ? `Month ${m} (current)`
+                : `Month ${m}`;
             return (
-              <div key={m} className={`month ${cls}`}>
+              <div key={m} className={`month ${cls}`} title={tooltip}>
                 <div className="m-n">M{String(m).padStart(2, "0")}</div>
                 <div className="m-w">{winnerLabel}</div>
                 <div className="m-a">{amount}</div>
