@@ -10,7 +10,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 [![Solana Colosseum 2026](https://img.shields.io/badge/Solana-Colosseum%202026-14F195?style=for-the-badge&logo=solana&logoColor=black)](https://colosseum.com)
 
-[Architecture](docs/architecture.md) · [Invariants](docs/invariants.md) · [Mock-to-Production](docs/mock-to-production.md) · [Spec](docs/SPEC_V1.md) · [Open Questions](QUESTIONS.md)
+[Architecture](docs/architecture.md) · [Invariants](docs/invariants.md) · [Mock-to-Production](docs/mock-to-production.md) · [Spec](docs/SPEC_V1.md) · [Open Questions](QUESTIONS.md) · [Backlog](docs/BACKLOG.md)
 
 </div>
 
@@ -105,8 +105,7 @@ See [`scripts/README.md`](scripts/README.md) for the full deploy + safeguard doc
 │   ├── invariants.md            36 INV entries with verifying tests
 │   ├── mock-to-production.md    every // MOCK_KYC: site + production migration
 │   └── SPEC_V1.md               source of truth for divergence
-├── archive/                     legacy V0 program (frontend still references)
-├── app/                         Next.js frontend (currently broken vs new IDL — V2)
+├── app/                         Next.js frontend (live, devnet-wired)
 ├── deployments/                 deploy.ts writes JSON receipts here
 ├── QUESTIONS.md                 36 spec questions, several RESOLVED
 └── Anchor.toml
@@ -132,8 +131,8 @@ See [`scripts/README.md`](scripts/README.md) for the full deploy + safeguard doc
 - ⏳ **Switchboard On-Demand VRF** — replace deterministic mock entropy in `select_winner`
 - ⏳ **Fork-mainnet test harness** — required for Tier-1 once real Kamino lands
 - ⏳ **Multisig admin** — move admin authority to Squads
-- ⏳ **Frontend rebuild** — `app/` is broken since the V1 program rebuild; needs to be wired against the new SDK
-- ⏳ **Address Lookup Table** — needed at full 12-bid `select_winner` (arch §8)
+- ⏳ **Admin withdraw paths** — protocol-fee + reserve sweeps, see [`docs/BACKLOG.md`](docs/BACKLOG.md)
+- ⏳ **Address Lookup Table** — currently bootstrapped via `scripts/setup-alt.ts`; long-term move into the protocol (arch §8)
 
 ## Audit-readiness checklist
 
@@ -159,6 +158,11 @@ See [`scripts/README.md`](scripts/README.md) for the full deploy + safeguard doc
 - **Invariants**: [`docs/invariants.md`](docs/invariants.md)
 - **Mock-to-production**: [`docs/mock-to-production.md`](docs/mock-to-production.md)
 - **Open questions**: [`QUESTIONS.md`](QUESTIONS.md)
+- **Backlog**: [`docs/BACKLOG.md`](docs/BACKLOG.md) — post-V1 follow-ups
+- **Frontend handoff**: [`docs/FRONTEND_HANDOFF_V1.md`](docs/FRONTEND_HANDOFF_V1.md)
+- **Brand guide**: [`docs/BRAND_GUIDE.md`](docs/BRAND_GUIDE.md)
+- **Pitch deck prompt**: [`docs/PITCH_DECK_PROMPT.md`](docs/PITCH_DECK_PROMPT.md)
+- **Pitch deck review notes**: [`docs/PITCH_DECK_REVIEW_NOTES.md`](docs/PITCH_DECK_REVIEW_NOTES.md)
 - **SDK**: [`client/README.md`](client/README.md)
 - **Scripts**: [`scripts/README.md`](scripts/README.md)
 
