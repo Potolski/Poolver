@@ -49,11 +49,15 @@ export function PoolCard({ pool, featured }: PoolCardProps) {
   const lifetimeHuman = Number(microUsdcToHuman(lifetimeMicro));
 
   const isForming = status === "forming";
+  const isComplete = status === "completed";
+  // Clamp `currentMonth` for display — on-chain it ticks past totalMonths
+  // when the pool advances out of month 12 into is_complete.
+  const displayMonth = Math.min(pool.currentMonth, pool.totalMonths);
   const fill =
     isForming
       ? pool.participantCount / 12
       : pool.totalMonths > 0
-        ? pool.currentMonth / pool.totalMonths
+        ? displayMonth / pool.totalMonths
         : 0;
   const barColor = isForming ? "var(--warn)" : "var(--acc)";
 
@@ -173,7 +177,9 @@ export function PoolCard({ pool, featured }: PoolCardProps) {
           <span>
             {isForming
               ? `FILLING ${pool.participantCount}/12`
-              : `MONTH ${String(pool.currentMonth).padStart(2, "0")} / ${pool.totalMonths}`}
+              : isComplete
+                ? `COMPLETE · ${pool.totalMonths}/${pool.totalMonths}`
+                : `MONTH ${String(displayMonth).padStart(2, "0")} / ${pool.totalMonths}`}
           </span>
           <span style={{ color: "var(--fg-4)" }}>
             {Math.round(fill * 100)}%
@@ -239,7 +245,9 @@ export function PoolCard({ pool, featured }: PoolCardProps) {
         >
           {isForming
             ? `OPENS @ 12/12`
-            : `${pool.totalMonths - pool.currentMonth} months remaining`}
+            : isComplete
+              ? `Pool complete`
+              : `${pool.totalMonths - displayMonth} months remaining`}
         </span>
         <span
           style={{

@@ -71,8 +71,12 @@ export default function PoolPage() {
   const monthlyHuman = Number(microUsdcToHuman(pool.contributionAmount));
   const lifetimeHuman = monthlyHuman * pool.totalMonths;
   const totalContributedHuman = Number(microUsdcToHuman(pool.totalContributed));
+  // On-chain `current_month` ticks past total_months when month-12 advances
+  // and the pool flips to is_complete. For display purposes, clamp so we
+  // never render "13/12".
+  const displayMonth = Math.min(pool.currentMonth, pool.totalMonths);
   const fill =
-    pool.totalMonths > 0 ? (pool.currentMonth / pool.totalMonths) * 100 : 0;
+    pool.totalMonths > 0 ? (displayMonth / pool.totalMonths) * 100 : 0;
 
   const idShort = `PLVR-${pool.publicKey.toBase58().slice(0, 4).toUpperCase()}`;
   const tierLabel = pool.tier === "vault" ? "Tier 0 · Vault" : "Tier 1 · DeFi";
@@ -97,7 +101,7 @@ export default function PoolPage() {
                 ? "FORMING"
                 : status === "completed"
                   ? "COMPLETE"
-                  : `LIVE · MONTH ${String(pool.currentMonth).padStart(2, "0")}/${pool.totalMonths}`}
+                  : `LIVE · MONTH ${String(displayMonth).padStart(2, "0")}/${pool.totalMonths}`}
               {" · "}
               {idShort}
             </div>
@@ -114,7 +118,9 @@ export default function PoolPage() {
             <p className="hero-deck">
               {status === "forming"
                 ? `Filling. ${pool.participantCount} of 12 participants joined.`
-                : `Month ${pool.currentMonth} of ${pool.totalMonths}.`}{" "}
+                : status === "completed"
+                  ? `Pool complete — all ${pool.totalMonths} months distributed.`
+                  : `Month ${displayMonth} of ${pool.totalMonths}.`}{" "}
               Lifetime pool{" "}
               <b style={{ color: "var(--fg)" }}>
                 ${lifetimeHuman.toLocaleString()}
@@ -165,8 +171,13 @@ export default function PoolPage() {
                 <div className="fill" style={{ width: `${fill}%` }} />
               </div>
               <div className="metric-sub">
-                {pool.currentMonth} of {pool.totalMonths} months ·{" "}
-                {pool.paidCountForCurrentMonth}/12 paid current
+                {displayMonth} of {pool.totalMonths} months
+                {status === "active" && (
+                  <>
+                    {" · "}
+                    {pool.paidCountForCurrentMonth}/12 paid current
+                  </>
+                )}
               </div>
               <div className="metric-kv">
                 <span className="k">Monthly</span>

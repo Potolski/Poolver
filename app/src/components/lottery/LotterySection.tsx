@@ -71,7 +71,11 @@ export function LotterySection({
    *  manual "Slash N unpaid" button to retry. */
   const autoSlashAttempted = useRef<Set<string>>(new Set());
 
-  const month = monthState?.currentMonth ?? pool.currentMonth;
+  // Clamp to total_months — on-chain `current_month` ticks past
+  // total_months when the pool advances out of month 12 and flips
+  // is_complete=true; we never want to render "month 13 / 12".
+  const rawMonth = monthState?.currentMonth ?? pool.currentMonth;
+  const month = Math.min(rawMonth, pool.totalMonths);
   const secsLeft = monthState?.secondsUntilMonthEnd ?? 0;
   const monthEnded = secsLeft <= 0;
   const revealWindowClosed =
