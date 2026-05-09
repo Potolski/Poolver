@@ -14,8 +14,14 @@ interface UsePoolsResult {
   refetch: () => Promise<void>;
 }
 
-function decodeTier(idlVariant: { vault?: object; defi?: object }): TierName {
+function decodeTier(
+  idlVariant: { vault?: object; defi?: object; deFi?: object }
+): TierName {
   if ("vault" in idlVariant && idlVariant.vault) return "vault";
+  // Anchor TS lowercases only the first letter of `DeFi` → `deFi`
+  // (the inner capital is preserved). Accept `defi` too in case
+  // a future Anchor release normalizes differently.
+  if ("deFi" in idlVariant && idlVariant.deFi) return "defi";
   if ("defi" in idlVariant && idlVariant.defi) return "defi";
   throw new Error("unrecognized tier variant on Pool account");
 }
