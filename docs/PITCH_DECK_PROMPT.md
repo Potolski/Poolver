@@ -113,23 +113,13 @@ Three visual blocks across the slide:
 **Block A — Orda (on/off-ramp partner)** [LEFT]
 
 - `[ORDA LOGO]` placeholder
-- Quote (Orda founder gave us creative license — pick one of these
-  three; A is the strongest, B and C are alternates if A reads too
-  hot for the room):
-  >  **A.** *"Poolver is what consórcios should have been from
+- Quote (Orda founder gave us creative license :
+  >  *"Poolver is what consórcios should have been from
   > the start. We're betting our on-ramp on it because Brazilian
   > families deserve this product."*
   > — Orda Founder
-  >
-  > **B.** *"In ten years of fintech I haven't seen a Brazilian
-  > crypto team this aligned with how real households actually save.
-  > Orda is wiring the fiat rails so Poolver can ship."*
-  > — Orda Founder
-  >
-  > **C.** *"Brazil invented consórcios. Poolver makes them honest.
-  > That's the kind of product Orda exists to power."*
-  > — Orda Founder
-- Caption: BRL ↔ USDC, Pix-native, in production.
+
+- Caption: BRL ↔ USDC, Pix-native, in development.
 
 **Block B — Porto Seguro (regulatory bridge)** [CENTER]
 
