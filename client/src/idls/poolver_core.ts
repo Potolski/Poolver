@@ -4802,6 +4802,19 @@ export type PoolverCore = {
             "type": "i64"
           },
           {
+            "name": "slashedMonths",
+            "docs": [
+              "Bitmap, bit N = month N+1 was *slashed* (filled by",
+              "`slash_unpaid`) rather than paid normally via `contribute`.",
+              "`paid_months` and `slashed_months` may both have the same bit",
+              "set on a given month — semantically the slot was \"satisfied\"",
+              "either way, but the UI distinguishes them so a viewer can see",
+              "who actually defaulted on each month vs paid on time.",
+              "2 bytes carved from `_reserved` (7 → 5)."
+            ],
+            "type": "u16"
+          },
+          {
             "name": "reserved",
             "docs": [
               "Reserved padding for forward compat. Step 10 default-cascade",
@@ -4813,7 +4826,7 @@ export type PoolverCore = {
             "type": {
               "array": [
                 "u8",
-                7
+                5
               ]
             }
           }

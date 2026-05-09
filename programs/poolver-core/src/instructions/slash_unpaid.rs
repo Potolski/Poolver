@@ -249,6 +249,10 @@ pub fn handle_slash_unpaid<'info>(
     // ───── 5. State updates ─────────────────────────────────────────────
     let participant = &mut ctx.accounts.participant;
     participant.mark_month_paid(current_month);
+    // Also flip the `slashed_months` bit so the UI can render the slot
+    // distinct from a normal paid month. Both bitmaps are ORed onto;
+    // INV-3's monotonic-bit-flip property is preserved.
+    participant.mark_month_slashed(current_month);
     let collateral_locked_after =
         collateral_locked_before.saturating_sub(slash_amount);
     participant.collateral_locked = collateral_locked_after;

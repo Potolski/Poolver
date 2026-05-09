@@ -345,12 +345,20 @@ pub struct Participant {
     /// Wall-clock when `suspend_participant` flagged this participant.
     /// 8 bytes carved from `_reserved` (15 → 7).
     pub suspended_at: i64,
+    /// Bitmap, bit N = month N+1 was *slashed* (filled by
+    /// `slash_unpaid`) rather than paid normally via `contribute`.
+    /// `paid_months` and `slashed_months` may both have the same bit
+    /// set on a given month — semantically the slot was "satisfied"
+    /// either way, but the UI distinguishes them so a viewer can see
+    /// who actually defaulted on each month vs paid on time.
+    /// 2 bytes carved from `_reserved` (7 → 5).
+    pub slashed_months: u16,
     /// Reserved padding for forward compat. Step 10 default-cascade
     /// fields (`is_late: 1, late_marked_at: 8, suspended_at: 8` = 17 B)
     /// were carved from the original 24 B; `liquidation_amount` was
     /// repurposed in-place from `pending_credit`. Net Participant size
     /// delta vs step 9: 0 bytes. SPEC_QUESTION-31 size playbook.
-    pub _reserved: [u8; 7],
+    pub _reserved: [u8; 5],
 }
 
 impl Participant {
@@ -369,6 +377,16 @@ impl Participant {
     pub fn mark_month_paid(&mut self, month: u8) {
         debug_assert!(month >= 1 && month <= 12);
         self.paid_months |= 1u16 << (month - 1);
+    }
+
+    /// Set bit `(month - 1)` of `slashed_months`. Called by
+    /// `slash_unpaid` in addition to `mark_month_paid` — the slot is
+    /// "satisfied" in `paid_months`, but `slashed_months` records that
+    /// the satisfaction came from a collateral slash rather than an
+    /// on-time contribution.
+    pub fn mark_month_slashed(&mut self, month: u8) {
+        debug_assert!(month >= 1 && month <= 12);
+        self.slashed_months |= 1u16 << (month - 1);
     }
 }
 
