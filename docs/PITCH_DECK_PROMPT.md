@@ -40,7 +40,7 @@ Just the brand. Wordmark + tagline:
 > Poolver
 > **Verifiable consórcios on Solana**
 > Solana Colosseum 2026 · poolver.com
-> David Potolski Lafetá · Brenno [LASTNAME]
+> David Potolski · Brenno Araujo
 
 Footer line in mono: founders' emails / X handles.
 
@@ -113,10 +113,22 @@ Three visual blocks across the slide:
 **Block A — Orda (on/off-ramp partner)** [LEFT]
 
 - `[ORDA LOGO]` placeholder
-- Quote (use the actual sentence after [Orda founder name] confirms wording — currently authorized to attribute):
-  > *"[Founder name]: 'Poolver is the first Brazilian crypto product
-  > that makes consórcios actually work. We're proud to power their
-  > fiat on/off-ramp.'"*
+- Quote (Orda founder gave us creative license — pick one of these
+  three; A is the strongest, B and C are alternates if A reads too
+  hot for the room):
+  >  **A.** *"Poolver is what consórcios should have been from
+  > the start. We're betting our on-ramp on it because Brazilian
+  > families deserve this product."*
+  > — Orda Founder
+  >
+  > **B.** *"In ten years of fintech I haven't seen a Brazilian
+  > crypto team this aligned with how real households actually save.
+  > Orda is wiring the fiat rails so Poolver can ship."*
+  > — Orda Founder
+  >
+  > **C.** *"Brazil invented consórcios. Poolver makes them honest.
+  > That's the kind of product Orda exists to power."*
+  > — Orda Founder
 - Caption: BRL ↔ USDC, Pix-native, in production.
 
 **Block B — Porto Seguro (regulatory bridge)** [CENTER]
@@ -129,10 +141,12 @@ Three visual blocks across the slide:
 **Block C — Devnet today** [RIGHT]
 
 - "Live on Solana devnet"
-- Three stats (auto-pull from chain or update by hand before deck):
-  - X pools deployed
-  - Y total contributions
-  - $Z in protocol fees collected
+- Real stats as of deck build (pulled from chain via
+  `scripts/deck-stats.ts` — re-run before sending if more time has passed):
+  - **12 pools deployed** (4 completed · 6 active · 2 forming)
+  - **$2.7M in lifetime contributions**
+  - **$32.8K in protocol fees collected**
+  - **$42.4K in tier reserves** (Vault $18.8K + DeFi $23.6K)
 
 ### 9 · Business model — clean two-tier
 
@@ -172,17 +186,19 @@ deepest cultural fit, Orda + Porto Seguro already engaged."*
 
 Two cards, side by side:
 
-**[DAVID PHOTO]   David Potolski Lafetá**
+**[DAVID PHOTO]   David Potolski**
 - Lead Protocol Engineer
 - **Quit his full-time job to work on Poolver full-time**
 - Built all four Anchor programs + deploy infra + the audit-ready core
-- Brazilian, [previous company / experience line — fill in]
+- Brazilian · in crypto since 2019
+- davidpotolskilafeta@gmail.com
 
-**[BRENNO PHOTO]   Brenno [LASTNAME]**
+**[BRENNO PHOTO]   Brenno Araujo**
 - Frontend & Partnerships Lead
 - **Closed the Orda integration. Driving Porto Seguro discussions.**
 - Builds and ships the user-facing app
-- Brazilian, [previous company / experience line — fill in]
+- Brazilian · in crypto since 2021
+- brennoaraujoqueiroz@gmail.com
 
 Caption: *"Two-person team. Full focus. Brazilian-native go-to-market."*
 
@@ -193,8 +209,14 @@ size the raise per the conversation, not the deck.
 
 - **Now raising — let's talk.** Building 12 months of runway.
 - **Where the money goes**: engineering · biz dev (regulatory + partnerships) · audit · mainnet launch
-- **Contact**: davidpotolskilafeta@gmail.com · [Brenno's email] · @poolverfi
-- Big QR code → poolver.com
+- **Contact**:
+  - David · davidpotolskilafeta@gmail.com
+  - Brenno · brennoaraujoqueiroz@gmail.com
+  - Project · @poolverfi · poolver.com
+- **QR code** (real, scannable, links to https://poolver.com):
+  use `docs/assets/poolver-qr.svg` (vector, infinitely scalable) or
+  `docs/assets/poolver-qr.png` (1200px, error-correction H). Do NOT
+  generate a fake QR — the included file resolves to the live site.
 
 ---
 
