@@ -51,8 +51,14 @@ export interface PoolView {
   raw: Record<string, unknown>;
 }
 
-function decodeTier(idlVariant: { vault?: object; defi?: object }): TierName {
+function decodeTier(
+  idlVariant: { vault?: object; defi?: object; deFi?: object }
+): TierName {
   if ("vault" in idlVariant && idlVariant.vault) return "vault";
+  // Anchor TS lowercases only the first letter of `DeFi` → `deFi`. We
+  // also accept `defi` for forward compat in case the decoder ever
+  // normalizes differently.
+  if ("deFi" in idlVariant && idlVariant.deFi) return "defi";
   if ("defi" in idlVariant && idlVariant.defi) return "defi";
   throw new Error("unrecognized tier variant from on-chain Pool account");
 }
