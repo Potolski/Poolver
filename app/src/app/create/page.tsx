@@ -80,7 +80,55 @@ function Kv({
 export default function CreatePage() {
   const router = useRouter();
   const { client, connected } = usePoolver();
-  const { state: onboardingState } = useOnboarding();
+  const {
+    state: onboardingState,
+    ensureReputation,
+    ensureKyc,
+  } = useOnboarding();
+  const [onboardingBusy, setOnboardingBusy] = useState<
+    "reputation" | "kyc" | null
+  >(null);
+
+  async function handleEnsureReputation() {
+    setOnboardingBusy("reputation");
+    const toastId = toast.loading("Initializing reputation account…");
+    try {
+      const sig = await ensureReputation();
+      toast.success("Reputation initialized", {
+        id: toastId,
+        description: `sig: ${sig.slice(0, 12)}…`,
+      });
+    } catch (e) {
+      toast.error("Failed", {
+        id: toastId,
+        description: (e instanceof Error ? e.message : String(e)).slice(0, 200),
+      });
+    } finally {
+      setOnboardingBusy(null);
+    }
+  }
+
+  async function handleEnsureKyc() {
+    setOnboardingBusy("kyc");
+    const toastId = toast.loading("Issuing demo KYC…");
+    try {
+      const { signature, idempotent } = await ensureKyc();
+      toast.success(
+        idempotent ? "KYC already issued" : "Demo KYC granted",
+        {
+          id: toastId,
+          description: signature ? `sig: ${signature.slice(0, 12)}…` : undefined,
+        }
+      );
+    } catch (e) {
+      toast.error("KYC failed", {
+        id: toastId,
+        description: (e instanceof Error ? e.message : String(e)).slice(0, 200),
+      });
+    } finally {
+      setOnboardingBusy(null);
+    }
+  }
   const { open } = useAppKit();
   const [step, setStep] = useState(1);
   const [deploying, setDeploying] = useState(false);
@@ -508,12 +556,41 @@ export default function CreatePage() {
                     fontFamily: "var(--mono)",
                     fontSize: 12,
                     color: "var(--warn)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
                   }}
                 >
-                  ⚠ Complete onboarding before deploy:{" "}
-                  {onboardingState === "needs_reputation"
-                    ? "initialize your reputation account."
-                    : "verify identity (demo KYC)."}
+                  <span>
+                    ⚠ One step before deploy:{" "}
+                    {onboardingState === "needs_reputation"
+                      ? "initialize your reputation account."
+                      : "verify identity (demo KYC)."}
+                  </span>
+                  {onboardingState === "needs_reputation" && (
+                    <button
+                      className="btn primary"
+                      onClick={handleEnsureReputation}
+                      disabled={onboardingBusy !== null}
+                      style={{ alignSelf: "flex-start" }}
+                    >
+                      {onboardingBusy === "reputation"
+                        ? "Signing…"
+                        : "▶ Initialize account"}
+                    </button>
+                  )}
+                  {onboardingState === "needs_kyc" && (
+                    <button
+                      className="btn primary"
+                      onClick={handleEnsureKyc}
+                      disabled={onboardingBusy !== null}
+                      style={{ alignSelf: "flex-start" }}
+                    >
+                      {onboardingBusy === "kyc"
+                        ? "Issuing…"
+                        : "▶ Verify (demo KYC)"}
+                    </button>
+                  )}
                 </div>
               )}
             </>
